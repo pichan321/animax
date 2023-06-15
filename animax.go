@@ -1,5 +1,7 @@
-package main
+package animax
 
-func PlaceHolder() {
-	
+import "fmt"
+
+func PrintHello() {
+	fmt.Println("Hello")
 }
