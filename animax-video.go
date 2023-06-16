@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -20,6 +21,7 @@ type File interface {
 
 type Video struct {
 	FileName string
+	FilePath string
 	Fps float64
 	Width int64
 	Height int64
@@ -75,13 +77,35 @@ func (args Args) addArg(key string, value string) {
     args[key] = append(args[key], value)
 }
 
-func pullStats(videoPath string) {
+func pullStats(videoPath string) interface{} {
 	cmd := exec.Command("ffmpeg", "-i", videoPath)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		
+	output, _ := cmd.CombinedOutput()
+
+
+	outputLines := strings.Split(string(output), "\n")
+
+	// stats := &struct {
+
+	// }{}
+	for _, line := range outputLines {
+
+		if strings.Contains("Duration", line) {
+			valueStrings := strings.Split(line, ",")
+			for _, value := range valueStrings {
+				fmt.Println(value)
+			}
+			continue
+		}
+
+		if strings.Contains("Stream", line) {
+			valueStrings := strings.Split(line, ",")
+			for _, value := range valueStrings {
+				fmt.Println(value)
+			}
+			continue
+		}
 	}
-	fmt.Println(string(output))
+	return nil
 }
 
 
@@ -101,6 +125,7 @@ func Load(videoPath string) (video Video, err error) {
 
 	return Video{
 		FileName: filepath.Base(videoPath),
+		FilePath: videoPath,
 		Format: filepath.Ext(videoPath),
 		args: make(Args),
 	}, nil
@@ -145,7 +170,7 @@ func (video *Video) Crop(width int64, height int64, startingPositions ...int64) 
 		if index == 1  {y = value}
 	} 
 	video.args.addArg("-filter_complex", fmt.Sprintf(`crop=%d:%d:%d:%d`, width, height, x, y))
-	return video
+	return modifiedVideo
 }
 
 func (video *Video) CropOutTop(pixels int64) (modifiedVideo *Video) {
@@ -191,18 +216,15 @@ func (video *Video) NewAspectRatio(aspectRatio float32) (modifiedVideo *Video) {
 	return video
 }
 
-func (video *Video) ChangeVideoVolume() (modifiedVideo *Video) {
-	// video.args.addArg("-filter:a", fmt.Sprintf(`volume=db`))
-	return 
+func (video *Video) ChangeVideoVolume(multiplier float64) (modifiedVideo *Video) {
+	video.args["-filter:a"] = []string{fmt.Sprintf(`volume=%f`, multiplier)}
+	return  video
 }
 
-func (video *Video) MuteAudio() {
-	
-	return
+func (video *Video) MuteAudio() (modifiedVideo *Video) {
+	video.args["-filter:a"] = []string{`volume=0`}
+	return video
 }
-
-
-
 
 func (video Video) queryBuilder(outputPath string) []string {
 	query := []string{"ffmpeg", "-i", video.FileName, "-filter_complex"}
@@ -234,10 +256,16 @@ func (video Video) queryBuilder(outputPath string) []string {
 }
 
 func (video Video) Render(outputPath string) {
-	_, err := os.Stat(outputPath)
+	file, err := os.Stat(outputPath)
 	if err == nil {
 		os.Remove(outputPath)
 	}
+
+	if file.IsDir() {
+		logger.Error("outputhPath is a directory")
+		return
+	}
+
 	// outputQuery := video.queryBuilder()
 	// cmd := exec.Command()
 	query := video.queryBuilder(outputPath)
