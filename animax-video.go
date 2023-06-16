@@ -196,7 +196,7 @@ func (video *Video) CropOutRight(pixels int64) (modifiedVideo *Video) {
 func (video *Video) Blur(intensity int16) (modifiedVideo *Video) {
 	if (intensity < 0 || intensity > 50) {
 		logger.Warn("Blur intensity should be between 0 and 50")
-		return video
+		return &Video{}
 	}
  	video.args.addArg("-filter_complex", fmt.Sprintf(`boxblur=%d`, intensity))
 	return video
