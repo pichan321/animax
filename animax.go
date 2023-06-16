@@ -1,8 +1,16 @@
 package animax
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"reflect"
+
+	logger "github.com/sirupsen/logrus"
 )
+type Args map[string]interface{}
 
 type Video struct {
 	FileName string
@@ -11,12 +19,8 @@ type Video struct {
 	Height int64
 	Duration int64
 	Volume int32
-	OutputWidth int64
-	OutputHeight int64
-	OutputDuration int64
-	OutputVolume int32
 	Format string
-	Args map[string][]string
+	args Args
 	IsMuted bool
 }
 
@@ -25,16 +29,40 @@ type TrimSection struct {
 	EndTime int64
 }
 
+
+
 func PrintHello() {
 	fmt.Println("Hello")
 }
 
-func (Video *Video) Load(filePath string) {
+func (args Args) addArg(key string, value interface{}) {
+    args[key] = value
+}
+
+
+func Load(videoPath string) (video Video, err error) { 
+	file, err := os.Stat(videoPath)
+	if err != nil {
+		logger.Error(fmt.Sprintf(`videoPath: %s does not exist`, videoPath))
+		return Video{}, err
+	}
+
+	if file.IsDir() {
+		logger.Error(fmt.Sprintf(`videoPath: %s is a directory`, videoPath))
+		return Video{}, errors.New("videoPath: %s is a directory")
+	}
+
 	
+	return Video{
+		FileName: filepath.Base(videoPath),
+		Format: filepath.Ext(videoPath),
+		args: make(Args),
+	}, nil
 }
 
 func (video *Video) Resize(width int64, height int64) {
-
+	video.Width, video.Height = width, height
+	// video.Args.AddArg("scale", )
 }
 
 func (video *Video) ResizeByWidth(width int64) {
@@ -45,8 +73,13 @@ func (video *Video) ResizeByHeight(height int64) {
 
 }
 
-func (video *Video) Trim() {
-
+func (video *Video) Trim(startTime int64, endTime int64) {
+	if startTime > endTime {
+		logger.Error("start time cannot be bigger than end time")
+	}
+	
+	video.args.addArg("-ss", fmt.Sprint(startTime))
+	video.args.addArg("-to", fmt.Sprint(endTime))
 }
 
 func (video *Video) MultipleTrim() {
@@ -90,6 +123,7 @@ func (video *Video) MuteAudio() {
 	
 }
 
+
 func AddOverlayBackground() {
 
 }
@@ -98,6 +132,34 @@ func ConcatenateVideos(videos []Video) {
 
 }
 
-func (video Video) Render() {
+func (video Video) queryBuilder(outputPath string) []string {
+	query := []string{"ffmpeg", "-i", video.FileName}
+	for k, v := range video.args {
+		query = append(query, k)
+		if reflect.TypeOf(v).Name() == "string" {
+			query = append(query, v.(string))
+		}
+	
+	}
+	query = append(query, []string{"-c", "copy", outputPath}...)
+	fmt.Println(query)
+	return query
+}
 
+func (video Video) Render(outputPath string) {
+	_, err := os.Stat(outputPath)
+	if err == nil {
+		os.Remove(outputPath)
+	}
+	// outputQuery := video.queryBuilder()
+	// cmd := exec.Command()
+	query := video.queryBuilder(outputPath)
+	cmd := exec.Command(query[0], query[1:]...)
+	logger.Info("Command to be executed: " + cmd.String())
+	ouput, err := cmd.Output()
+	if err != nil {
+		logger.Error(err.Error())
+		return
+	}
+	logger.Info(string(ouput))
 }
