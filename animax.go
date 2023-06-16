@@ -84,7 +84,6 @@ func Load(videoPath string) (video Video, err error) {
 
 	pullStats(videoPath)
 
-	
 	return Video{
 		FileName: filepath.Base(videoPath),
 		Format: filepath.Ext(videoPath),
@@ -125,25 +124,33 @@ func (video *Video) MultipleTrim(concatenateAfter bool, trimSections []TrimSecti
 }
 
 func (video *Video) Crop(width int64, height int64, startingPositions ...int64) (modifiedVideo *Video) {
-	fmt.Println(startingPositions)
-	video.args.addArg("-filter_complex", fmt.Sprintf(`crop=%d:%d`, width, height))
+	var x, y int64 = 0, 0
+	for index, value := range startingPositions {
+		if index == 0 {x = value}
+		if index == 1  {y = value}
+	} 
+	video.args.addArg("-filter_complex", fmt.Sprintf(`crop=%d:%d:%d:%d`, width, height, x, y))
 	return video
 }
 
-func (video *Video) CropTop(width int64) {
-
+func (video *Video) CropTop(pixels int64) (modifiedVideo *Video) {
+	video.args.addArg("-filter_complex", fmt.Sprintf(`crop=in_w:in_h-%d:0:out_h:`, pixels))
+	return video
 }
 
-func (video *Video) CropBottom(width int64) {
-
+func (video *Video) CropBottom(pixels int64) (modifiedVideo *Video) {
+	video.args.addArg("-filter_complex", fmt.Sprintf(`crop=in_w:in_h-%d:0:in_h:`, pixels))
+	return video
 }
 
-func (video *Video) CropLeft(width int64) {
-
+func (video *Video) CropLeft(pixels int64) (modifiedVideo *Video) {
+	video.args.addArg("-filter_complex", fmt.Sprintf(`crop=in_w-%d:in_h:0:0:`, pixels))
+	return video
 }
 
-func (video *Video) CropRight(width int64) {
-
+func (video *Video) CropRight(pixels int64) (modifiedVideo *Video) {
+	video.args.addArg("-filter_complex", fmt.Sprintf(`crop=in_w-%d:in_h:in_w:0:`, pixels))
+	return video
 }
 
 func MultiFilter() {
