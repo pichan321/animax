@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/google/uuid"
+
 	logger "github.com/sirupsen/logrus"
 )
 
@@ -167,6 +168,15 @@ func (video *Video) CropOutRight(pixels int64) (modifiedVideo *Video) {
 	return video
 }
 
+func (video *Video) Blur(intensity int16) (modifiedVideo *Video) {
+	if (intensity < 0 || intensity > 50) {
+		logger.Warn("Blur intensity should be between 0 and 50")
+		return video
+	}
+ 	video.args.addArg("-filter_complex", fmt.Sprintf(`boxblur=%d`, intensity))
+	return video
+}
+
 func MultiFilter() {
 	
 }
@@ -176,16 +186,19 @@ func (video *Video) Skipper(skipDuration int64, skipInterval int64) {
 }
 
 
-func (video *Video) NewAspectRatio() {
+func (video *Video) NewAspectRatio(aspectRatio float32) (modifiedVideo *Video) {
 	
+	return video
 }
 
-func (video *Video) ChangeVideoVolume() {
-
+func (video *Video) ChangeVideoVolume() (modifiedVideo *Video) {
+	// video.args.addArg("-filter:a", fmt.Sprintf(`volume=db`))
+	return 
 }
 
 func (video *Video) MuteAudio() {
 	
+	return
 }
 
 
@@ -194,11 +207,9 @@ func (video *Video) MuteAudio() {
 func (video Video) queryBuilder(outputPath string) []string {
 	query := []string{"ffmpeg", "-i", video.FileName, "-filter_complex"}
 
-
-
-		// if reflect.TypeOf(v).Name() == "string" {
-		// 	// query = append(query, v)
-		// }
+	// if reflect.TypeOf(v).Name() == "string" {
+	// 	// query = append(query, v)
+	// }
 	filter := ""
 	current := ""
 	for index, val := range video.args["-filter_complex"] {
