@@ -10,7 +10,12 @@ import (
 	"github.com/google/uuid"
 	logger "github.com/sirupsen/logrus"
 )
+
 type Args map[string][]string
+
+type File interface {
+	Trim()
+}
 
 type Video struct {
 	FileName string
@@ -24,12 +29,17 @@ type Video struct {
 	IsMuted bool
 }
 
+type Audio struct {
+	FileName string
+	Duration int64
+	args Args
+}
+
 type TrimSection struct {
 	StartTime int64
 	EndTime int64
 	OutputName string
 }
-
 
 var VIDEO_ENCODINGS = struct {
 	Best string
@@ -57,7 +67,6 @@ func pullStats(videoPath string) {
 		
 	}
 	fmt.Println(string(output))
-
 }
 
 
@@ -101,22 +110,24 @@ func (video *Video) ResizeByHeight(height int64) (modifiedVideo *Video) {
 func (video *Video) Trim(startTime int64, endTime int64) (modifiedVideo *Video){
 	if startTime > endTime {
 		logger.Error("start time cannot be bigger than end time")
+		return &Video{}
 	}
 	
-	// video.args.addArg("-ss", fmt.Sprint(startTime))
-	// video.args.addArg("-to", fmt.Sprint(endTime))
 	video.args.addArg("-filter_complex", fmt.Sprintf(`trim=start=%d:end=%d`, startTime, endTime))
 	return video
 }
 
-func (video *Video) MultipleTrim(concatenateAfter bool, trimSections []TrimSection) {
+func (video *Video) MultipleTrim(concatenateAfter bool, trimSections []TrimSection) (modifiedVideo *Video) {
 	for _, v := range trimSections {
 		fmt.Print(v)
 	}
+	return video
 }
 
-func (video *Video) Crop(width int64, height int) {
-
+func (video *Video) Crop(width int64, height int64, startingPositions ...int64) (modifiedVideo *Video) {
+	fmt.Println(startingPositions)
+	video.args.addArg("-filter_complex", fmt.Sprintf(`crop=%d:%d`, width, height))
+	return video
 }
 
 func (video *Video) CropTop(width int64) {
