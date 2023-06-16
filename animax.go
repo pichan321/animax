@@ -51,6 +51,20 @@ var VIDEO_ENCODINGS = struct {
 	Compressed: "libaom-av1",
 }
 
+var ASPECT_RATIOS = struct {
+	Square float32
+	Standard float32
+	
+	Shorts float32 //Youtube Shorts, Facebok Reels, Instagram Reels, TikTok Videos
+	Videos float32 //Youtube Videos, Facebok Videos, General Videos
+}{
+	Square: 1.0,
+	Standard: 16.0/9.0,
+
+	Shorts: 9.0/16.0, //Youtube Shorts, Facebok Reels, Instagram Reels, TikTok Videos
+	Videos: 16.0/9.0, //Youtube Videos, Facebok Videos, General Videos
+}
+
 
 func PrintHello() {
 	fmt.Println("Hello")
@@ -133,23 +147,23 @@ func (video *Video) Crop(width int64, height int64, startingPositions ...int64) 
 	return video
 }
 
-func (video *Video) CropTop(pixels int64) (modifiedVideo *Video) {
+func (video *Video) CropOutTop(pixels int64) (modifiedVideo *Video) {
 	video.args.addArg("-filter_complex", fmt.Sprintf(`crop=in_w:in_h-%d:0:out_h:`, pixels))
 	return video
 }
 
-func (video *Video) CropBottom(pixels int64) (modifiedVideo *Video) {
-	video.args.addArg("-filter_complex", fmt.Sprintf(`crop=in_w:in_h-%d:0:in_h:`, pixels))
+func (video *Video) CropOutBottom(pixels int64) (modifiedVideo *Video) {
+	video.args.addArg("-filter_complex", fmt.Sprintf(`crop=in_w:in_h-%d:0:0`, pixels))
 	return video
 }
 
-func (video *Video) CropLeft(pixels int64) (modifiedVideo *Video) {
+func (video *Video) CropOutLeft(pixels int64) (modifiedVideo *Video) {
+	video.args.addArg("-filter_complex", fmt.Sprintf(`crop=in_w-%d:in_h:%d:0:`, pixels, pixels))
+	return video
+}
+
+func (video *Video) CropOutRight(pixels int64) (modifiedVideo *Video) {
 	video.args.addArg("-filter_complex", fmt.Sprintf(`crop=in_w-%d:in_h:0:0:`, pixels))
-	return video
-}
-
-func (video *Video) CropRight(pixels int64) (modifiedVideo *Video) {
-	video.args.addArg("-filter_complex", fmt.Sprintf(`crop=in_w-%d:in_h:in_w:0:`, pixels))
 	return video
 }
 
@@ -158,7 +172,7 @@ func MultiFilter() {
 }
 
 func (video *Video) Skipper(skipDuration int64, skipInterval int64) {
-
+	
 }
 
 
