@@ -10,7 +10,7 @@ import (
 
 	logger "github.com/sirupsen/logrus"
 )
-type Args map[string]interface{}
+type Args map[string][]string
 
 type Video struct {
 	FileName string
@@ -27,6 +27,7 @@ type Video struct {
 type TrimSection struct {
 	StartTime int64
 	EndTime int64
+	OutputName string
 }
 
 
@@ -35,8 +36,18 @@ func PrintHello() {
 	fmt.Println("Hello")
 }
 
-func (args Args) addArg(key string, value interface{}) {
-    args[key] = value
+func (args Args) addArg(key string, value string) {
+    args[key] = append(args[key], value)
+}
+
+func pullStats(videoPath string) {
+	cmd := exec.Command("ffmpeg", "-i", videoPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		
+	}
+	fmt.Println(string(output))
+
 }
 
 
@@ -52,6 +63,8 @@ func Load(videoPath string) (video Video, err error) {
 		return Video{}, errors.New("videoPath: %s is a directory")
 	}
 
+	pullStats(videoPath)
+
 	
 	return Video{
 		FileName: filepath.Base(videoPath),
@@ -60,50 +73,60 @@ func Load(videoPath string) (video Video, err error) {
 	}, nil
 }
 
-func (video *Video) Resize(width int64, height int64) {
-	video.Width, video.Height = width, height
-	// video.Args.AddArg("scale", )
+func (video *Video) Resize(width int64, height int64) (modifiedVideo Video) {
+	video.args.addArg("-filter_complex", fmt.Sprintf(`scale=%d:%d`, width, height))
+	return modifiedVideo
 }
 
-func (video *Video) ResizeByWidth(width int64) {
-
+func (video *Video) ResizeByWidth(width int64) (modifiedVideo Video) {
+	video.args.addArg("-filter_complex", fmt.Sprintf(`scale=%d:%d`, width, -1))
+	return modifiedVideo
 }
 
-func (video *Video) ResizeByHeight(height int64) {
-
+func (video *Video) ResizeByHeight(height int64) (modifiedVideo Video) {
+	video.args.addArg("-filter_complex", fmt.Sprintf(`scale=%d:%d`, -1 , height))
+	return modifiedVideo
 }
 
-func (video *Video) Trim(startTime int64, endTime int64) {
+func (video *Video) Trim(startTime int64, endTime int64) (modifiedVideo Video){
 	if startTime > endTime {
 		logger.Error("start time cannot be bigger than end time")
 	}
 	
-	video.args.addArg("-ss", fmt.Sprint(startTime))
-	video.args.addArg("-to", fmt.Sprint(endTime))
+	// video.args.addArg("-ss", fmt.Sprint(startTime))
+	// video.args.addArg("-to", fmt.Sprint(endTime))
+	video.args.addArg("-filter_complex", fmt.Sprintf(`trim=start=%d:end=%d`, startTime, endTime))
+	return modifiedVideo
 }
 
-func (video *Video) MultipleTrim() {
-
+func (video *Video) MultipleTrim(concatenateAfter bool, trimSections []TrimSection) {
+	for _, v := range trimSections {
+		fmt.Print(v)
+	}
 }
 
 func (video *Video) Crop(width int64, height int) {
 
 }
 
-func (video *Video) CropTop() {
+func (video *Video) CropTop(width int64) {
 
 }
 
-func (video *Video) CropBottom() {
+func (video *Video) CropBottom(width int64) {
 
 }
 
-func (video *Video) CropLeft() {
+func (video *Video) CropLeft(width int64) {
 
 }
 
-func (video *Video) CropRight() {
+func (video *Video) CropRight(width int64) {
 
+}
+
+func MultiFilter() {
+	
 }
 
 func (video *Video) Skipper(skipDuration int64, skipInterval int64) {
@@ -124,24 +147,19 @@ func (video *Video) MuteAudio() {
 }
 
 
-func AddOverlayBackground() {
 
-}
-
-func ConcatenateVideos(videos []Video) {
-
-}
 
 func (video Video) queryBuilder(outputPath string) []string {
 	query := []string{"ffmpeg", "-i", video.FileName}
 	for k, v := range video.args {
 		query = append(query, k)
 		if reflect.TypeOf(v).Name() == "string" {
-			query = append(query, v.(string))
+			// query = append(query, v)
 		}
 	
 	}
-	query = append(query, []string{"-c", "copy", outputPath}...)
+	query = append(query, []string{"-c:v", "copy", "-c:a", "copy", outputPath}...)
+	// query = append(query, []string{outputPath}...)
 	fmt.Println(query)
 	return query
 }
