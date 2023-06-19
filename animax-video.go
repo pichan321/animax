@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -30,12 +31,6 @@ type Video struct {
 	Format string
 	args Args
 	IsMuted bool
-}
-
-type Audio struct {
-	FileName string
-	Duration int64
-	args Args
 }
 
 type TrimSection struct {
@@ -72,35 +67,17 @@ func (args Args) addArg(key string, value string) {
     args[key] = append(args[key], value)
 }
 
-func pullStats(videoPath string) interface{} {
-	cmd := exec.Command("ffmpeg", "-i", videoPath)
+func pullStats(videoPath string) (width int, height int, duration int) {
+	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "stream=width,height,duration", "-of", "default=noprint_wrappers=1", videoPath)
 	output, _ := cmd.CombinedOutput()
-
-
 	outputLines := strings.Split(string(output), "\n")
-
-	// stats := &struct {
-
-	// }{}
-	for _, line := range outputLines {
-
-		if strings.Contains("Duration", line) {
-			valueStrings := strings.Split(line, ",")
-			for _, value := range valueStrings {
-				fmt.Println(value)
-			}
-			continue
-		}
-
-		if strings.Contains("Stream", line) {
-			valueStrings := strings.Split(line, ",")
-			for _, value := range valueStrings {
-				fmt.Println(value)
-			}
-			continue
-		}
+	if len(outputLines) != 3 {
+		return -1, -1, -1
 	}
-	return nil
+	width, _ = strconv.Atoi(strings.Split(outputLines[0], "=")[1])
+	height, _ = strconv.Atoi(strings.Split(outputLines[1], "=")[1])
+	duration, _ = strconv.Atoi(strings.Split(outputLines[2], "=")[1])
+	return width, height, duration
 }
 
 
@@ -116,12 +93,15 @@ func Load(videoPath string) (video Video, err error) {
 		return Video{}, errors.New("videoPath: %s is a directory")
 	}
 
-	pullStats(videoPath)
+	width, height, duration := pullStats(videoPath)
 
 	return Video{
 		FileName: filepath.Base(videoPath),
 		FilePath: videoPath,
 		Format: filepath.Ext(videoPath),
+		Width: int64(width),
+		Height: int64(height),
+		Duration: int64(duration),
 		args: make(Args),
 	}, nil
 }
@@ -222,13 +202,9 @@ func (video *Video) MuteAudio() (modifiedVideo *Video) {
 }
 
 func shouldProcessFilterComplex(filterComplex []string) ([]string, bool) {
-	logger.Info("Should process running")
-	logger.Info(filterComplex[0])
 	if len(filterComplex) == 1 && strings.HasPrefix(filterComplex[0], "trim=") {
-		logger.Info("Got here")
 		startTime := strings.Split(strings.Split(filterComplex[0], "start=")[1], ":end=")[0]
 		endTime := strings.Split(filterComplex[0], ":end=")[1]
-		logger.Info("shouldnt")
 		return []string{"-ss", startTime, "-to", endTime, "-c", "copy"}, false
 	}
 	return []string{}, true
