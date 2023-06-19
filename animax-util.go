@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	logger "github.com/sirupsen/logrus"
@@ -26,9 +27,14 @@ func VerifyFilePath(filePath string) (err error) {
 	Automatically recale video to 9:16 for Shorts Video. This is intentional.
 ***/
 func AddOverlayBackground(video Video, outputPath string) (err error) {
-	err = VerifyFilePath(outputPath)
+	err = VerifyFilePath(video.FilePath)
 	if err != nil {
 		return err
+	}
+
+	err = VerifyFilePath(outputPath)
+	if err == nil {
+		os.Remove(outputPath)
 	}
 
 	cmd := exec.Command("ffmpeg", "-i", video.FilePath, "-i", video.FilePath, "-filter_complex", "[1]scale=1080:600[vid]; [0]scale=1080:1920[img]; [img][vid] overlay=(W-w)/2:(H-h)/2", "-acodec", "copy", outputPath)
@@ -49,9 +55,14 @@ func AddOverlayBackgroundAndLogo(video Video, logoPath string, outputPath string
 	if err != nil {
 		return err
 	}
-	err = VerifyFilePath(outputPath)
+	err = VerifyFilePath(video.FilePath)
 	if err != nil {
 		return err
+	}
+
+	err = VerifyFilePath(outputPath)
+	if err == nil {
+		os.Remove(outputPath)
 	}
 	
 	cmd := exec.Command("ffmpeg", "-i", video.FilePath, "-i", video.FilePath, "-i", logoPath, "-filter_complex", "[1]scale=1080:600[vid]; [0]crop=540:960:(in_w-540)/2:(in_h-960)/2,scale=1080:1920[img]; [img]boxblur=15[blurred]; [blurred][vid]overlay=(W-w)/2:(H-h)/2[with_logo]; [2:v]scale=320:220[logo_resized]; [with_logo][logo_resized]overlay=20:H-h-300", "-acodec", "copy", outputPath)
@@ -67,8 +78,8 @@ func AddOverlayBackgroundAndLogo(video Video, logoPath string, outputPath string
 
 func ConcatenateVideos(videos []Video, outputPath string) (err error) {
 	err = VerifyFilePath(outputPath)
-	if err != nil {
-		return err
+	if err == nil {
+		os.Remove(outputPath)
 	}
 
 	inputTextFileName := fmt.Sprintf(`%s-temp-input.txt`, uuid.New().String()[0:8])
@@ -76,13 +87,13 @@ func ConcatenateVideos(videos []Video, outputPath string) (err error) {
 	if err != nil {
 		return errors.New("unable to create a temp ")
 	}
+
 	defer os.Remove(inputTextFileName)
 
-	content := ""
 	for _, video := range videos {
-		content += fmt.Sprintf(`file '%s'\n`, video.FilePath)
+		inputTextFile.WriteString(fmt.Sprintf(`file '%s'`, video.FilePath) + "\n")
 	}
-	inputTextFile.WriteString(content)
+	inputTextFile.Close()
 
 	cmd := exec.Command("ffmpeg", "-f", "concat", "-i", inputTextFileName, "-c", "copy", outputPath)
 	err = cmd.Run()
@@ -91,3 +102,41 @@ func ConcatenateVideos(videos []Video, outputPath string) (err error) {
 	}
 	return nil
 }
+
+func ConcatenateVideosFromDir(directoryPath string, outputPath string) error {
+	dir, err := os.Stat(directoryPath)
+	if err != nil {
+		logger.Error("unable to open directory")
+		return err
+	}
+
+	if !dir.IsDir() {
+		logger.Error("invalid directoryPath specified")
+		return errors.New("invalid directory path")
+	}
+
+	filesInDir, err :=os.ReadDir(directoryPath)
+	if err != nil {
+		return err
+	}
+	
+	videosInDir := []Video{}
+	for _, file := range filesInDir {
+		videoPath := fmt.Sprintf(`%s/%s`, directoryPath, file.Name())
+		extension := filepath.Ext(videoPath)
+		if extension == ".mp4" {
+			video, err := Load(videoPath)
+			if err != nil {
+				logger.Info(fmt.Sprintf(`file: %s is used in concatenation since it is not a video`, filepath.Base(videoPath)))
+				continue
+			}
+			videosInDir = append(videosInDir, video)
+		}
+	}
+
+	err = ConcatenateVideos(videosInDir, outputPath)
+	if err != nil {
+		return err
+	}
+	return nil
+}	
