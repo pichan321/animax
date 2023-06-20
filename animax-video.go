@@ -10,8 +10,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-
-	logger "github.com/sirupsen/logrus"
 )
 
 type Args map[string][]string
@@ -27,7 +25,7 @@ type Video struct {
 	Width int64
 	Height int64
 	Duration int64
-	Volume int32
+	AspectRatio string
 	Format string
 	args Args
 	IsMuted bool
@@ -67,21 +65,26 @@ func (args Args) addArg(key string, value string) {
     args[key] = append(args[key], value)
 }
 
-func pullStats(videoPath string) (width int, height int, duration int) {
-	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "stream=width,height,duration", "-of", "default=noprint_wrappers=1", videoPath)
+func pullStats(videoPath string) (width int, height int, duration int, aspectRatio string) {
+	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "stream=width,height,duration,display_aspect_ratio", "-of", "default=noprint_wrappers=1", videoPath)
 	output, _ := cmd.CombinedOutput()
 	outputLines := strings.Split(string(output), "\n")
-	if len(outputLines) != 3 {
-		return -1, -1, -1
+
+	if len(outputLines) != 5 {
+		return -1, -1, -1, ""
 	}
-	width, _ = strconv.Atoi(strings.Split(outputLines[0], "=")[1])
-	height, _ = strconv.Atoi(strings.Split(outputLines[1], "=")[1])
-	duration, _ = strconv.Atoi(strings.Split(outputLines[2], "=")[1])
-	return width, height, duration
+
+	width, _ = strconv.Atoi(strings.TrimSuffix(strings.Split(outputLines[0], "=")[1], "\r"))
+	height, _ = strconv.Atoi(strings.TrimSuffix(strings.Split(outputLines[1], "=")[1], "\r"))
+	aspectRatio = strings.TrimSuffix(strings.Split(outputLines[2], "=")[1], "\r")
+	duration, _ = strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(outputLines[3], "=")[1], "\r"), ".")[0])
+
+	return width, height, duration, aspectRatio
 }
 
 
-func Load(videoPath string) (video Video, err error) { 
+func Load(videoPath string) (video Video, err error) {
+	logger := GetLogger()
 	file, err := os.Stat(videoPath)
 	if err != nil {
 		logger.Error(fmt.Sprintf(`videoPath: %s does not exist`, videoPath))
@@ -93,7 +96,7 @@ func Load(videoPath string) (video Video, err error) {
 		return Video{}, errors.New("videoPath: %s is a directory")
 	}
 
-	width, height, duration := pullStats(videoPath)
+	width, height, duration, aspectRatio := pullStats(videoPath)
 
 	return Video{
 		FileName: filepath.Base(videoPath),
@@ -102,6 +105,7 @@ func Load(videoPath string) (video Video, err error) {
 		Width: int64(width),
 		Height: int64(height),
 		Duration: int64(duration),
+		AspectRatio: aspectRatio,
 		args: make(Args),
 	}, nil
 }
@@ -122,6 +126,7 @@ func (video *Video) ResizeByHeight(height int64) (modifiedVideo *Video) {
 }
 
 func (video *Video) Trim(startTime int64, endTime int64) (modifiedVideo *Video){
+	logger := GetLogger()
 	if startTime > endTime {
 		logger.Error("start time cannot be bigger than end time")
 		return &Video{}
@@ -170,6 +175,7 @@ func (video *Video) CropOutRight(pixels int64) (modifiedVideo *Video) {
 
 func (video *Video) Blur(intensity int16) (modifiedVideo *Video) {
 	if (intensity < 0 || intensity > 50) {
+		logger := GetLogger()
 		logger.Warn("Blur intensity should be between 0 and 50")
 		return &Video{}
 	}
@@ -177,17 +183,8 @@ func (video *Video) Blur(intensity int16) (modifiedVideo *Video) {
 	return video
 }
 
-func MultiFilter() {
-	
-}
-
-func (video *Video) Skipper(skipDuration int64, skipInterval int64) {
-	
-}
-
-
 func (video *Video) NewAspectRatio(aspectRatio float32) (modifiedVideo *Video) {
-	
+	video.args["-aspect"] = []string{fmt.Sprintf(`%f`,aspectRatio)}
 	return video
 }
 
@@ -216,6 +213,10 @@ func (video Video) queryBuilder(outputPath string, videoEncoding string) []strin
 	// if reflect.TypeOf(v).Name() == "string" {
 	// 	// query = append(query, v)
 	// }
+
+	if len(video.args["-aspect"]) > 0 {
+		query = append(query, []string{"-aspect", video.args["-aspect"][0]}...)
+	}
 
 	if len(video.args["-filter:a"]) > 0 {
 		query = append(query, []string{"-filter:a", video.args["-filter:a"][0]}...)
@@ -269,12 +270,12 @@ func (video Video) queryBuilder(outputPath string, videoEncoding string) []strin
 	if len(output) == 0 {
 		output = []string{"-c:v", VIDEO_ENCODINGS.Best, outputPath}
 	}
+	logger := GetLogger()
 	logger.Info("Final output " + strings.Join(output, " "))
 
 	query = append(query, output...)
 	// query = append(query, []string{"-c:v", "copy", "-c:a", "copy", outputPath}...)
 	// query = append(query, []string{outputPath}...)
-	fmt.Println(query)
 	return query
 }
 
@@ -292,6 +293,7 @@ func (video Video) Render(outputPath string, videoEncoding string) (outputVideo 
 
 	query := video.queryBuilder(outputPath, videoEncoding)
 	cmd := exec.Command(query[0], query[1:]...)
+	logger := GetLogger()
 	logger.Info("Command to be executed: " + cmd.String())
 	_, err = cmd.Output()
 	if err != nil {
@@ -299,6 +301,7 @@ func (video Video) Render(outputPath string, videoEncoding string) (outputVideo 
 		return Video{}
 	}
 
+	video.args = make(Args)
 	outputVideo, err = Load(outputPath)
 	if err != nil {
 		logger.Error(fmt.Sprintf("outputVideo: %s cannot be loaded.", outputPath))
