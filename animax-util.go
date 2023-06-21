@@ -202,3 +202,7 @@ func Skipper(video Video, skipDuration float64, skipInterval float64, outputPath
 	defer os.RemoveAll(workingDir)
 	return nil
 }
+
+func (video Video) ExtractAudio(videoPath string, outputPath string) error {
+	return nil
+}

@@ -82,7 +82,6 @@ func pullStats(videoPath string) (width int, height int, duration int, aspectRat
 	return width, height, duration, aspectRatio
 }
 
-
 func Load(videoPath string) (video Video, err error) {
 	logger := GetLogger()
 	file, err := os.Stat(videoPath)
@@ -185,6 +184,10 @@ func (video *Video) Blur(intensity int16) (modifiedVideo *Video) {
 
 func (video *Video) NewAspectRatio(aspectRatio float32) (modifiedVideo *Video) {
 	video.args["-aspect"] = []string{fmt.Sprintf(`%f`,aspectRatio)}
+	return video
+}
+
+func (video *Video) NewAspectRatioPadAuto(aspectRatio float32) (modifiedVideo *Video) {
 	return video
 }
 

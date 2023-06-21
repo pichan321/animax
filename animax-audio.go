@@ -23,10 +23,11 @@ func (audio Audio) SpeedUp() {
 
 }
 
-func (audio Audio) AddImageBackground() {
+func (audio Audio) AddImageBackground(imagePath string) {
 
 }
 
-func (audio Audio) AddVideoBackground() {
+func (audio Audio) AddVideoBackground(videoPath string) {
 	
 }
+
