@@ -12,12 +12,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type Args map[string][]string
-
-type File interface {
-	Trim()
-}
-
 type Video struct {
 	FileName string
 	FilePath string
@@ -65,24 +59,27 @@ func (args Args) addArg(key string, value string) {
     args[key] = append(args[key], value)
 }
 
-func pullStats(videoPath string) (width int, height int, duration int, aspectRatio string) {
+func pullVideoStats(videoPath string) (width int, height int, duration int, aspectRatio string) {
 	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "stream=width,height,duration,display_aspect_ratio", "-of", "default=noprint_wrappers=1", videoPath)
 	output, _ := cmd.CombinedOutput()
 	outputLines := strings.Split(string(output), "\n")
 
-	if len(outputLines) != 5 {
+	if len(outputLines) < 5 {
 		return -1, -1, -1, ""
 	}
 
 	width, _ = strconv.Atoi(strings.TrimSuffix(strings.Split(outputLines[0], "=")[1], "\r"))
 	height, _ = strconv.Atoi(strings.TrimSuffix(strings.Split(outputLines[1], "=")[1], "\r"))
 	aspectRatio = strings.TrimSuffix(strings.Split(outputLines[2], "=")[1], "\r")
-	duration, _ = strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(outputLines[3], "=")[1], "\r"), ".")[0])
+	duration, err := strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(outputLines[4], "=")[1], "\r"), ".")[0])
+	if err != nil {
+		duration, _ = strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(outputLines[3], "=")[1], "\r"), ".")[0])
+	}
 
 	return width, height, duration, aspectRatio
 }
 
-func Load(videoPath string) (video Video, err error) {
+func LoadVideo(videoPath string) (video Video, err error) {
 	logger := GetLogger()
 	file, err := os.Stat(videoPath)
 	if err != nil {
@@ -95,17 +92,17 @@ func Load(videoPath string) (video Video, err error) {
 		return Video{}, errors.New("videoPath: %s is a directory")
 	}
 
-	width, height, duration, aspectRatio := pullStats(videoPath)
+	width, height, duration, aspectRatio := pullVideoStats(videoPath)
 
 	return Video{
-		FileName: filepath.Base(videoPath),
-		FilePath: videoPath,
-		Format: filepath.Ext(videoPath),
-		Width: int64(width),
-		Height: int64(height),
-		Duration: int64(duration),
+		FileName:    filepath.Base(videoPath),
+		FilePath:    videoPath,
+		Format:      filepath.Ext(videoPath),
+		Width:       int64(width),
+		Height:      int64(height),
+		Duration:    int64(duration),
 		AspectRatio: aspectRatio,
-		args: make(Args),
+		args:        make(Args),
 	}, nil
 }
 
@@ -191,7 +188,7 @@ func (video *Video) NewAspectRatioPadAuto(aspectRatio float32) (modifiedVideo *V
 	return video
 }
 
-func (video *Video) ChangeVideoVolume(multiplier float64) (modifiedVideo *Video) {
+func (video *Video) ChangeVolume(multiplier float64) (modifiedVideo *Video) {
 	video.args["-filter:a"] = []string{fmt.Sprintf(`volume=%f`, multiplier)}
 	return  video
 }
@@ -211,7 +208,7 @@ func shouldProcessFilterComplex(filterComplex []string) ([]string, bool) {
 }
 
 func (video Video) queryBuilder(outputPath string, videoEncoding string) []string {
-	query := []string{"ffmpeg", "-i", video.FileName, }
+	query := []string{"ffmpeg", "-i", video.FilePath, }
 
 	// if reflect.TypeOf(v).Name() == "string" {
 	// 	// query = append(query, v)
@@ -305,7 +302,9 @@ func (video Video) Render(outputPath string, videoEncoding string) (outputVideo 
 	}
 
 	video.args = make(Args)
-	outputVideo, err = Load(outputPath)
+	var fileInterface interface{}
+	fileInterface, err = LoadVideo(outputPath)
+	outputVideo = fileInterface.(Video)
 	if err != nil {
 		logger.Error(fmt.Sprintf("outputVideo: %s cannot be loaded.", outputPath))
 		return Video{}
