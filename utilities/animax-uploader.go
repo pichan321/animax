@@ -167,6 +167,10 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 		return errors.New("path must be a file, not a directory")
 	}
 
+	if fileInfo.Size() > max_video_size {
+		return errors.New(fmt.Sprintf(`max allowed file size is %d`, max_video_size))
+	}
+	
 	client := &http.Client{}
 	requestUrl, err := url.Parse(fmt.Sprintf(`https://graph-video.facebook.com/v17.0/%s/videos`, upload.PageId))
 	if err != nil {
