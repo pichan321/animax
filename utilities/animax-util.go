@@ -24,7 +24,7 @@ func VerifyFilePath(filePath string) (err error) {
 }
 
 /***
-	Automatically recale video to 9:16 for Shorts Video. This is intentional.
+	Automatically rescale video to 9:16 for Shorts Video. This is intentional.
 ***/
 func AddOverlayBackground(video animax.Video, outputPath string) (err error) {
 	err = VerifyFilePath(video.FilePath)
@@ -49,7 +49,7 @@ func AddOverlayBackground(video animax.Video, outputPath string) (err error) {
 }
 
 /***
-	Automatically recale video to 9:16 for Shorts Video. This is intentional.
+	Automatically rescale video to 9:16 for Shorts Video. This is intentional.
 ***/
 func AddOverlayBackgroundAndLogo(video animax.Video, logoPath string, outputPath string) (err error) {
 	err = VerifyFilePath(logoPath)
@@ -164,7 +164,7 @@ func Skipper(video animax.Video, skipDuration float64, skipInterval float64, out
 	for i := 0.0; i < float64(videoDuration); i++ {
 		currentFrame := i
 
-		if (currentFrame >= float64(video.Duration)) || (nextFrameToSkip + skipDuration > float64(videoDuration)) || (nextFrameToSkip >= float64(videoDuration)) {break}
+		if (currentFrame >= float64(videoDuration)) || (nextFrameToSkip + skipDuration > float64(videoDuration)) || (nextFrameToSkip >= float64(videoDuration)) {break}
 		if currentFrame < nextFrameToSkip {continue}
 
 		start := nextFrameToSkip
@@ -185,7 +185,7 @@ func Skipper(video animax.Video, skipDuration float64, skipInterval float64, out
 		video.Duration -= (int64(end) - int64(start))
 		nextFrameToSkip = end + skipDuration
 
-		if nextFrameToSkip >= float64(video.Duration) {
+		if nextFrameToSkip > float64(videoDuration) {
 			logger.Infof("Video: %s | Path: %s | Exiting skipper loop", originalVideo.FileName, originalVideo.FilePath)
 			break
 		}

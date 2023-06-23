@@ -250,7 +250,7 @@ func (video Video) queryBuilder(outputPath string, videoEncoding string) []strin
 		if len(tag) == 0 {
 			output = []string{"-map", "[" + tag +"]", "-c", "copy", outputPath}
 		} else {
-			output = []string{"-map", "[" + tag +"]", "-c:v", videoEncoding, outputPath}
+			output = []string{"-map", "[" + tag + "]", "-c:v", videoEncoding, outputPath}
 		}
 	}
 
