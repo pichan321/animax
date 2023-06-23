@@ -2,6 +2,7 @@ package animax
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,9 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"time"
+
+	"github.com/pichan321/animax"
 )
 
 type PageUpload struct {
@@ -22,7 +26,22 @@ type PageUpload struct {
 	PageId string
 }
 
-const MB = 1024 * 1024
+const mb = 1024 * 1024 // 1 MB
+const max_reel_size = 250 * 1024 * 1024 //max reel size allowed is 250 MB
+const max_video_size = 10000 * 1024 * 1024 //max video size allowed is 10 GB
+
+func previewBytes(file *os.File) bool {
+	buffer := make([]byte, 5 * mb)
+	n, err := file.Read(buffer)
+	if n == 0 {
+		return false
+	}
+	if err != nil {
+		return false
+	}
+	file.Seek(0, 0)
+	return true
+}
 
 func UploadToFacebookReelPage(upload PageUpload) error {
 	if !(len(upload.Token) > 0) {
@@ -41,31 +60,38 @@ func UploadToFacebookReelPage(upload PageUpload) error {
 	client := &http.Client{}
 	requestUrl, err := url.Parse(fmt.Sprintf(`https://graph.facebook.com/v13.0/%s/video_reels`, upload.PageId))
 	if err != nil {
-
+		return err
 	}
+
 	params := requestUrl.Query()
 	params.Add("access_token", upload.Token)
 	params.Add("upload_phase", "start")
 	requestUrl.RawQuery = params.Encode()
 	req, err := http.NewRequest("POST", requestUrl.String(), nil)
+	if err != nil {return err}
 	response, err := client.Do(req)
+	if err != nil {return err}
 	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
+	if err != nil {return err}
 
 	bodyMap := make(map[string]interface{})
 	err = json.Unmarshal(body, &bodyMap)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("%+v", bodyMap)
+	if err != nil {return err}
+
 	uploadUrl := bodyMap["upload_url"].(string)
 	videoId := bodyMap["video_id"].(string)
 	file, err :=os.Open(upload.FilePath)
 	if err != nil {
 		return errors.New("unable to open file")
 	}
+	if fileInfo.Size() > max_reel_size {
+		return errors.New(fmt.Sprintf(`max allowed file size is %d`, max_reel_size))
+	}
+	ok := previewBytes(file)
+	if !ok {
+		return errors.New("unable to read file content")
+	}
+
 	fileContent, err := ioutil.ReadAll(file)
 	if err != nil {
 		return errors.New("unable to read file content")
@@ -85,7 +111,7 @@ func UploadToFacebookReelPage(upload PageUpload) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(string(body))
+
 	bodyMap = make(map[string]interface{})
 	err = json.Unmarshal(body, &bodyMap)
 	if err != nil {
@@ -152,19 +178,18 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 	params.Add("file_size", fmt.Sprintf(`%d`, fileInfo.Size()))
 	requestUrl.RawQuery = params.Encode()
 	req, err := http.NewRequest("POST", requestUrl.String(), nil)
+	if err != nil {return err}
 	response, err := client.Do(req)
+	if err != nil {return err}
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
-	fmt.Println(string(body))
 	bodyMap := make(map[string]interface{})
 	err = json.Unmarshal(body, &bodyMap)
 	if err != nil {
 		return err
 	}
-
-
 
 	sessionId := bodyMap["upload_session_id"].(string)
 	var startOffset int64 = 0
@@ -178,40 +203,34 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 	if err != nil {
 		return errors.New("unable to open file")
 	}
-
-	// previewBuffer := make([]byte, 5 * MB)
-	// n, err := file.Read(previewBuffer)
-	// if err != nil || n <= 0 {
-	// 	return errors.New("could not preview video file")
-	// }
-	// previewBuffer = nil
-	// _, err = file.Seek(0, 0)
-	// if err != nil {
-	// 	return err
-	// }
-
-	
-	
-	// startOffset, _ = strconv.ParseInt(bodyMap["start_offset"].(string), 10, 64)
-	// endOffset, _ = strconv.ParseInt(bodyMap["end_offset"].(string), 10, 64)
-
+	ok := previewBytes(file)
+	if !ok {
+		return errors.New("unable to read file content")
+	}
+	background := context.Background()
+	deadline, cancel := context.WithDeadline(background, time.Now().Add(time.Hour * 1))
 	for {
+		select {
+			case <-deadline.Done():
+				cancel()
+				return errors.New("upload expired")
+			default: 
+			animax.Logger.Infof("Uploading in progress: %f%", float64(startOffset)*100/float64(fileInfo.Size()))
+		}
 
-		buffer := make([]byte, endOffset - int64(startOffset))
+		buffer := make([]byte, endOffset - startOffset)
 		n, err := file.Read(buffer)
-		fmt.Printf(`Start: %d, End: %d, Buffer size: %d`, startOffset, endOffset, n)
-		fmt.Println()
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
+			cancel()
 			return err
 		}
 
 		bodyMulti := &bytes.Buffer{}
 		writer := multipart.NewWriter(bodyMulti)
 
-		// Add the video chunk as a form field
 		videoPart, err := writer.CreateFormFile("video_file_chunk", "video_chunk.mp4")
 		if err != nil {
 			fmt.Printf("Failed to create form file: %v\n", err)
@@ -251,23 +270,13 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 
 		uploadUrl, err := url.Parse(fmt.Sprintf(`https://graph-video.facebook.com/v17.0/%s/videos`, upload.PageId))
 		if err != nil {
-
+			return err
 		}
-		// params = uploadUrl.Query()
-		// params.Add("upload_phase", "transfer")
-		// params.Add("access_token", upload.Token)
-		// params.Add("upload_session_id", sessionId)
-		// params.Add("start_offset", "0")
-		// // params.Add("video_file_chunk", string(buffer[:n]))
-		// uploadUrl.RawQuery = params.Encode()
-		fmt.Println("Number of btytes sending")
-		fmt.Println(n)
-		fmt.Println(uploadUrl.String())
+
 		req, err = http.NewRequest("POST", uploadUrl.String(), bodyMulti)
 		req.Header.Add("Content-Type", writer.FormDataContentType())
 		req.Header.Set("Authorization", fmt.Sprintf(`OAuth %s`, upload.Token))
-		// req.Header.Set("offset", "0")
-		// req.Header.Set("file_size", fmt.Sprintf(`%d`, fileInfo.Size()))
+
 		if err != nil {
 			return err
 		}
@@ -298,35 +307,7 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 			break
 		}
 	}
-	// requestUrl, err = url.Parse(fmt.Sprintf(`https://graph.facebook.com/v13.0/%s/video_reels`, upload.PageId))
-	// if err != nil {
-	// 	return err
-	// }
-	// params = requestUrl.Query()
-	// params.Add("access_token", upload.Token)
-	// params.Add("video_id", videoId)
-	// params.Add("upload_phase", "finish")
-	// params.Add("video_state", "PUBLISHED")
-	// params.Add("description", upload.Description)
-	// requestUrl.RawQuery = params.Encode()
-	// req, err = http.NewRequest("POST", requestUrl.String(), nil)
-	// req.Header.Set("Authorization", fmt.Sprintf(`OAuth %s`, upload.Token))
-	// if err != nil {
-	// 	return err
-	// }
-	// response, err = client.Do(req)
-	// if err != nil {
-	// 	return err
-	// }
-	// body, err = ioutil.ReadAll(response.Body)
-	// if err != nil {
-	// 	return err
-	// }
-	// bodyMap = make(map[string]interface{})
-	// err = json.Unmarshal(body, &bodyMap)
-	// if err != nil {
-	// 	return err
-	// }
+	
 	
 	publishUrl, err := url.Parse(fmt.Sprintf(`https://graph-video.facebook.com/v17.0/%s/videos`, upload.PageId))
 	if err != nil {
@@ -348,14 +329,13 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 	if err != nil {
 		return err
 	}
-	body, err = ioutil.ReadAll(response.Body)
+	_, err = ioutil.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Publish status")
-	fmt.Println(string(body))
 
 	defer file.Close()
+	defer cancel()
 	defer response.Body.Close()
 	return nil
 }

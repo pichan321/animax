@@ -7,6 +7,8 @@ import (
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 )
 
+var Logger = GetLogger()
+
 func GetLogger() (*logrus.Logger){
 	logger := logrus.New()
 	logger.SetFormatter(&prefixed.TextFormatter{})
