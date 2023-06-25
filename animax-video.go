@@ -71,10 +71,14 @@ func pullVideoStats(videoPath string) (width int, height int, duration int, aspe
 	width, _ = strconv.Atoi(strings.TrimSuffix(strings.Split(outputLines[0], "=")[1], "\r"))
 	height, _ = strconv.Atoi(strings.TrimSuffix(strings.Split(outputLines[1], "=")[1], "\r"))
 	aspectRatio = strings.TrimSuffix(strings.Split(outputLines[2], "=")[1], "\r")
-	duration, err := strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(outputLines[4], "=")[1], "\r"), ".")[0])
-	if err != nil {
-		duration, _ = strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(outputLines[3], "=")[1], "\r"), ".")[0])
-	}
+	duration = -1
+	if strings.HasPrefix(outputLines[4], "duration") {
+		var err error
+		duration, err = strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(outputLines[4], "=")[1], "\r"), ".")[0])
+		if err != nil {
+			duration, _ = strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(outputLines[3], "=")[1], "\r"), ".")[0])
+		}
+	} 
 
 	return width, height, duration, aspectRatio
 }

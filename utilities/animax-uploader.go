@@ -214,14 +214,6 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 	background := context.Background()
 	deadline, cancel := context.WithDeadline(background, time.Now().Add(time.Hour * 1))
 	for {
-		select {
-			case <-deadline.Done():
-				cancel()
-				return errors.New("upload expired")
-			default: 
-			animax.Logger.Infof("Uploading in progress: %f%", float64(startOffset)*100/float64(fileInfo.Size()))
-		}
-
 		buffer := make([]byte, endOffset - startOffset)
 		n, err := file.Read(buffer)
 		if err != nil {
@@ -307,6 +299,14 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 			return err
 		}
 
+		select {
+		case <-deadline.Done():
+			cancel()
+			return errors.New("upload expired")
+		default: 
+			animax.Logger.Infof("Uploading in progress: %f%", float64(startOffset)*100/float64(fileInfo.Size()))
+		}
+
 		if (startOffset >= endOffset) {
 			break
 		}
@@ -337,6 +337,7 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 	if err != nil {
 		return err
 	}
+	animax.Logger.Infof("Upload published")
 
 	defer file.Close()
 	defer cancel()
