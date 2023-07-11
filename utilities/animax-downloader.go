@@ -1,25 +1,25 @@
 package animax
 
-func DownloadFacebookReel() {
+// func DownloadFacebookReel() {
 
-}
+// }
 
-func DownloadFacebookVideo() {
+// func DownloadFacebookVideo() {
 
-}
+// }
 
-func DownloadTiktokVideo() {
+// func DownloadTiktokVideo() {
 
-}
+// }
 
-func DownloadYoutubeShorts() {
+// func DownloadYoutubeShorts() {
 
-}
+// }
 
-func DownloadYoutubeVideo() {
+// func DownloadYoutubeVideo() {
 
-}
+// }
 
-func DownloadYoutubeAsMP3() {
+// func DownloadYoutubeAsMP3() {
 	
-}
+// }

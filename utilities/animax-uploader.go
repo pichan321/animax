@@ -100,28 +100,21 @@ func UploadToFacebookReelPage(upload PageUpload) error {
 	req.Header.Set("Authorization", fmt.Sprintf(`OAuth %s`, upload.Token))
 	req.Header.Set("offset", "0")
 	req.Header.Set("file_size", fmt.Sprintf(`%d`, fileInfo.Size()))
-	if err != nil {
-		return err
-	}
+	if err != nil {return err}
+
 	response, err = client.Do(req)
-	if err != nil {
-		return err
-	}
+	if err != nil {return err}
+
 	body, err = ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
+	if err != nil {return err}
 
 	bodyMap = make(map[string]interface{})
 	err = json.Unmarshal(body, &bodyMap)
-	if err != nil {
-		return err
-	}
+	if err != nil {return err}
 
 	requestUrl, err = url.Parse(fmt.Sprintf(`https://graph.facebook.com/v13.0/%s/video_reels`, upload.PageId))
-	if err != nil {
-		return err
-	}
+	if err != nil {return err}
+
 	params = requestUrl.Query()
 	params.Add("access_token", upload.Token)
 	params.Add("video_id", videoId)
@@ -131,22 +124,17 @@ func UploadToFacebookReelPage(upload PageUpload) error {
 	requestUrl.RawQuery = params.Encode()
 	req, err = http.NewRequest("POST", requestUrl.String(), nil)
 	req.Header.Set("Authorization", fmt.Sprintf(`OAuth %s`, upload.Token))
-	if err != nil {
-		return err
-	}
+	if err != nil {return err}
+
 	response, err = client.Do(req)
-	if err != nil {
-		return err
-	}
+	if err != nil {return err}
+
 	body, err = ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
+	if err != nil {return err}
+
 	bodyMap = make(map[string]interface{})
 	err = json.Unmarshal(body, &bodyMap)
-	if err != nil {
-		return err
-	}
+	if err != nil {return err}
 
 	defer file.Close()
 	defer response.Body.Close()
@@ -258,53 +246,41 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 		// Close the multipart writer
 		err = writer.Close()
 		if err != nil {
-			fmt.Printf("Failed to close multipart writer: %v\n", err)
-
-		}
-
-
-
-		uploadUrl, err := url.Parse(fmt.Sprintf(`https://graph-video.facebook.com/v17.0/%s/videos`, upload.PageId))
-		if err != nil {
+			animax.Logger.Errorf("Failed to close multipart writer: %v\n", err)
 			return err
 		}
+
+		uploadUrl, err := url.Parse(fmt.Sprintf(`https://graph-video.facebook.com/v17.0/%s/videos`, upload.PageId))
+		if err != nil {return err}
 
 		req, err = http.NewRequest("POST", uploadUrl.String(), bodyMulti)
 		req.Header.Add("Content-Type", writer.FormDataContentType())
 		req.Header.Set("Authorization", fmt.Sprintf(`OAuth %s`, upload.Token))
 
-		if err != nil {
-			return err
-		}
+		if err != nil {return err}
+
 		response, err = client.Do(req)
-		if err != nil {
-			return err
-		}
+		if err != nil {return err}
+
 		body, err = ioutil.ReadAll(response.Body)
-		if err != nil {
-			return err
-		}
+		if err != nil {return err}
 
 		bodyMap = make(map[string]interface{})
 		err = json.Unmarshal(body, &bodyMap)
-		if err != nil {
-			return err
-		}
+		if err != nil {return err}
+
 		startOffset, err = strconv.ParseInt(bodyMap["start_offset"].(string), 10, 64) 
-		if err != nil {
-			return err
-		}
+		if err != nil {return err}
+
 		endOffset, err = strconv.ParseInt(bodyMap["end_offset"].(string), 10, 64) 
-		if err != nil {
-			return err
-		}
+		if err != nil {return err}
 
 		select {
 		case <-deadline.Done():
 			cancel()
 			return errors.New("upload expired")
 		default: 
-			animax.Logger.Infof("Uploading in progress: %f%", float64(startOffset)*100/float64(fileInfo.Size()))
+			animax.Logger.Infof("Uploading in progress: %f %", float64(startOffset)*100/float64(fileInfo.Size()))
 		}
 
 		if (startOffset >= endOffset) {
@@ -315,8 +291,10 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 	
 	publishUrl, err := url.Parse(fmt.Sprintf(`https://graph-video.facebook.com/v17.0/%s/videos`, upload.PageId))
 	if err != nil {
+		cancel()
 		return err
 	}
+
 	params = publishUrl.Query()
 	params.Add("upload_phase", "finish")
 	params.Add("access_token", upload.Token)
@@ -327,16 +305,22 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 
 	req, err = http.NewRequest("POST", publishUrl.String(), nil)
 	if err != nil {
+		cancel()
 		return err
 	}
+
 	response, err = client.Do(req)
 	if err != nil {
+		cancel()
 		return err
 	}
+
 	_, err = ioutil.ReadAll(response.Body)
 	if err != nil {
+		cancel()
 		return err
 	}
+
 	animax.Logger.Infof("Upload published")
 
 	defer file.Close()
