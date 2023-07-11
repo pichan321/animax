@@ -15,7 +15,6 @@ import (
 type Video struct {
 	FileName string
 	FilePath string
-	Fps float64
 	Width int64
 	Height int64
 	Duration int64
@@ -31,6 +30,7 @@ type TrimSection struct {
 	OutputName string
 }
 
+var videoExtensions = []string{".mp4", ".avi", ".mov", ".mkv"}
 var VIDEO_ENCODINGS = struct {
 	Best string
 	Efficient string
@@ -59,11 +59,17 @@ func (args Args) addArg(key string, value string) {
     args[key] = append(args[key], value)
 }
 
+func contains(format string) bool {
+	for _, val := range videoExtensions {
+		if format == val {return true}
+	}
+	return false
+}
+
 func pullVideoStats(videoPath string) (width int, height int, duration int, aspectRatio string) {
 	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "stream=width,height,duration,display_aspect_ratio", "-of", "default=noprint_wrappers=1", videoPath)
 	output, _ := cmd.CombinedOutput()
 	outputLines := strings.Split(string(output), "\n")
-
 	if len(outputLines) < 5 {
 		return -1, -1, -1, ""
 	}
@@ -72,36 +78,43 @@ func pullVideoStats(videoPath string) (width int, height int, duration int, aspe
 	height, _ = strconv.Atoi(strings.TrimSuffix(strings.Split(outputLines[1], "=")[1], "\r"))
 	aspectRatio = strings.TrimSuffix(strings.Split(outputLines[2], "=")[1], "\r")
 	duration = -1
+	duration, _ = strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(outputLines[3], "=")[1], "\r"), ".")[0])
 	if strings.HasPrefix(outputLines[4], "duration") {
 		var err error
 		duration, err = strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(outputLines[4], "=")[1], "\r"), ".")[0])
 		if err != nil {
 			duration, _ = strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(outputLines[3], "=")[1], "\r"), ".")[0])
 		}
-	} 
+	}
 
 	return width, height, duration, aspectRatio
 }
 
+/*
+	Takes in the path of the video to be loaded and returns Video struct containing the video's metadata if the videoPath provided is valid.
+*/
 func LoadVideo(videoPath string) (video Video, err error) {
-	logger := GetLogger()
 	file, err := os.Stat(videoPath)
 	if err != nil {
-		logger.Error(fmt.Sprintf(`videoPath: %s does not exist`, videoPath))
+		Logger.Error(fmt.Sprintf(`videoPath: %s does not exist`, videoPath))
 		return Video{}, err
 	}
 
 	if file.IsDir() {
-		logger.Error(fmt.Sprintf(`videoPath: %s is a directory`, videoPath))
+		Logger.Error(fmt.Sprintf(`videoPath: %s is a directory`, videoPath))
 		return Video{}, errors.New("videoPath: %s is a directory")
 	}
 
 	width, height, duration, aspectRatio := pullVideoStats(videoPath)
-
+	fileFormat :=  filepath.Ext(videoPath)
+	if !contains(fileFormat) {
+		Logger.Error(fmt.Sprintf(`videoPath: %s | Video format is not supported`, videoPath))
+		return Video{}, err
+	}
 	return Video{
 		FileName:    filepath.Base(videoPath),
 		FilePath:    videoPath,
-		Format:      filepath.Ext(videoPath),
+		Format:   fileFormat,
 		Width:       int64(width),
 		Height:      int64(height),
 		Duration:    int64(duration),
@@ -126,20 +139,12 @@ func (video *Video) ResizeByHeight(height int64) (modifiedVideo *Video) {
 }
 
 func (video *Video) Trim(startTime int64, endTime int64) (modifiedVideo *Video){
-	logger := GetLogger()
 	if startTime > endTime {
-		logger.Error("start time cannot be bigger than end time")
+		Logger.Error("Start time cannot be bigger than end time")
 		return &Video{}
 	}
 	
 	video.args.addArg("-filter_complex", fmt.Sprintf(`trim=start=%d:end=%d`, startTime, endTime))
-	return video
-}
-
-func (video *Video) MultipleTrim(concatenateAfter bool, trimSections []TrimSection) (modifiedVideo *Video) {
-	for _, v := range trimSections {
-		fmt.Print(v)
-	}
 	return video
 }
 
@@ -202,16 +207,32 @@ func (video *Video) MuteAudio() (modifiedVideo *Video) {
 	return video
 }
 
-func shouldProcessFilterComplex(filterComplex []string) ([]string, bool) {
+func secondsToHMS(seconds int) string {
+	hours := seconds / 3600
+	minutes := (seconds % 3600) / 60
+	seconds = seconds % 60
+
+	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)
+}
+
+func shouldProcessFilterComplex(filterComplex []string, inputPath string) ([]string, bool) {
 	if len(filterComplex) == 1 && strings.HasPrefix(filterComplex[0], "trim=") {
 		startTime := strings.Split(strings.Split(filterComplex[0], "start=")[1], ":end=")[0]
 		endTime := strings.Split(filterComplex[0], ":end=")[1]
-		return []string{"-ss", startTime, "-to", endTime, "-c", "copy"}, false
+		startTimeInt,  err := strconv.Atoi(startTime)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+		endTimeInt, err:= strconv.Atoi(endTime)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+		return []string{"-i", inputPath, "-ss", secondsToHMS(startTimeInt), "-to", secondsToHMS(endTimeInt),  "-c:v", "libx264"}, false
 	}
 	return []string{}, true
 }
 
-func (video Video) queryBuilder(outputPath string, videoEncoding string) []string {
+func (video Video) queryBuilder(inputPath string, outputPath string, videoEncoding string) []string {
 	query := []string{"ffmpeg", "-i", video.FilePath, }
 
 	// if reflect.TypeOf(v).Name() == "string" {
@@ -228,7 +249,7 @@ func (video Video) queryBuilder(outputPath string, videoEncoding string) []strin
 	
 	tag := ""
 	output := []string{}
-	newTrimCmd, shouldProcess := shouldProcessFilterComplex(video.args["-filter_complex"])
+	newTrimCmd, shouldProcess := shouldProcessFilterComplex(video.args["-filter_complex"], inputPath)
 	if len(video.args["-filter_complex"]) > 0 && shouldProcess {
 		query = append(query, "-filter_complex")
 		filter := ""
@@ -254,13 +275,13 @@ func (video Video) queryBuilder(outputPath string, videoEncoding string) []strin
 		if len(tag) == 0 {
 			output = []string{"-map", "[" + tag +"]", "-c", "copy", outputPath}
 		} else {
-			output = []string{"-map", "[" + tag + "]", "-c:v", videoEncoding, outputPath}
+			output = []string{"-map", "[" + tag + "]", "-map", "0:a", "-c:v", videoEncoding, outputPath}
 		}
 	}
 
 	if !shouldProcess && len(video.args["-filter:a"]) == 0 {
 		output = append(newTrimCmd, outputPath)
-		query = append(query, output...)
+		query = append([]string{"ffmpeg", }, output...)
 		return query
 	}
 
@@ -273,6 +294,7 @@ func (video Video) queryBuilder(outputPath string, videoEncoding string) []strin
 
 	if len(output) == 0 {
 		output = []string{"-c:v", VIDEO_ENCODINGS.Best, outputPath}
+
 	}
 	logger := GetLogger()
 	logger.Info("Final output " + strings.Join(output, " "))
@@ -295,7 +317,7 @@ func (video Video) Render(outputPath string, videoEncoding string) (outputVideo 
 	// cmd := exec.Command()
 	if videoEncoding == "" {videoEncoding = VIDEO_ENCODINGS.Best}
 
-	query := video.queryBuilder(outputPath, videoEncoding)
+	query := video.queryBuilder(video.FilePath, outputPath, videoEncoding)
 	cmd := exec.Command(query[0], query[1:]...)
 	logger := GetLogger()
 	logger.Info("Command to be executed: " + cmd.String())
