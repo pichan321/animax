@@ -120,9 +120,11 @@ func (video Video) getFramesAndFps() (float64, int){
 	return fps, frames
 }
 
-func (video Video) getNewStartingFrame(startTime int64) float64 {
-	// fps, frames := video.getFramesAndFps()
-
+func (video Video) seekNewStartingFrame(startTime int64) float64 {
+	fps, frames := video.getFramesAndFps()
+	newStart := searchStartPts(fps, frames, float64(startTime))
+	Logger.Errorf("New Start %f", newStart)
+	return newStart
 }
 
 func pullVideoStats(videoPath string) (width int, height int, duration int, aspectRatio string) {
@@ -209,8 +211,8 @@ func (video *Video) Trim(startTime int64, endTime int64) (modifiedVideo *Video){
 		Logger.Error("Start time cannot be bigger than end time")
 		return &Video{}
 	}
-	
-	video.args.addArg("-filter_complex", fmt.Sprintf(`trim=start=%d:end=%d`, startTime, endTime))
+	newStart := video.seekNewStartingFrame(startTime)
+	video.args.addArg("-filter_complex", fmt.Sprintf(`trim=start=%f:end=%d`, newStart, endTime))
 	return video
 }
 
@@ -285,15 +287,7 @@ func shouldProcessFilterComplex(filterComplex []string, inputPath string) ([]str
 	if len(filterComplex) == 1 && strings.HasPrefix(filterComplex[0], "trim=") {
 		startTime := strings.Split(strings.Split(filterComplex[0], "start=")[1], ":end=")[0]
 		endTime := strings.Split(filterComplex[0], ":end=")[1]
-		startTimeInt,  err := strconv.Atoi(startTime)
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-		endTimeInt, err:= strconv.Atoi(endTime)
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-		return []string{"-i", inputPath, "-ss", secondsToHMS(startTimeInt), "-to", secondsToHMS(endTimeInt),  "-c:v", "libx264"}, false
+		return []string{"-ss", startTime, "-to", endTime, "-i", inputPath,  "-c", "copy"}, false
 	}
 	return []string{}, true
 }
