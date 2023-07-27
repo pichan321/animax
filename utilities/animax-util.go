@@ -82,7 +82,7 @@ func AddOverlayBackgroundAndLogo(video animax.Video, logoPath string, outputPath
 	Takes in a slice of containing Video structs and concatenates all those structs into a single video output file.
 	Returns nil if successful and an error otherwise.
 ***/
-func ConcatenateVideos(videos []animax.Video, outputPath string) (err error) {
+func ConcatenateVideos(videos []animax.Video, encode bool, outputPath string) (err error) {
 	err = VerifyFilePath(outputPath)
 	if err == nil {
 		os.Remove(outputPath)
@@ -101,6 +101,17 @@ func ConcatenateVideos(videos []animax.Video, outputPath string) (err error) {
 	}
 	inputTextFile.Close()
 
+	if encode {
+		cmd := exec.Command("ffmpeg", "-f", "concat", "-i", inputTextFileName, "-c:v", "libx264", "-c:a", "aac", outputPath)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			logger := animax.GetLogger()
+			logger.Info(fmt.Sprintf(`Error: %s`, string(output)))
+			return err
+		}
+		return nil
+	}
+
 	cmd := exec.Command("ffmpeg", "-f", "concat", "-i", inputTextFileName, "-c:v", "copy", "-c:a", "copy", outputPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -111,7 +122,7 @@ func ConcatenateVideos(videos []animax.Video, outputPath string) (err error) {
 	return nil
 }
 
-func ConcatenateVideosFromDir(directoryPath string, outputPath string) error {
+func ConcatenateVideosFromDir(directoryPath string, encode bool, outputPath string) error {
 	logger := animax.GetLogger()
 
 	dir, err := os.Stat(directoryPath); 
@@ -146,7 +157,7 @@ func ConcatenateVideosFromDir(directoryPath string, outputPath string) error {
 		}
 	}
 
-	err = ConcatenateVideos(videosInDir, outputPath)
+	err = ConcatenateVideos(videosInDir, false, outputPath)
 	if err != nil {
 		logger.Errorf("Error during concatenation phase | %s", err)
 		return err
@@ -203,7 +214,7 @@ func Skipper(video animax.Video, skipDuration float64, skipInterval float64, out
 	}
 
 	logger.Infof("Video: %s | Path: %s | Concatenating all clips in working directory %s", video.FileName, video.FilePath, workingDir)
-	err := ConcatenateVideos(clipsToConcat, outputPath)
+	err := ConcatenateVideos(clipsToConcat, true, outputPath)
 	if err != nil {
 		logger.Error("Error during concatenation")
 		return err

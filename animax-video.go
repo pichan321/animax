@@ -71,13 +71,13 @@ func calculatePts(n int, fps float64) float64 {
 	return float64(n) / fps
 }
 
-func searchStartPts(fps float64, frames int, start float64) float64 {
+func searchPts(fps float64, frames int, start float64) float64 {
 	low, high := 1, frames
 	for low <= high {
 		mid := (low + high) / 2
 		pts := calculatePts(mid, fps)
 		if math.Abs(pts-start) <= 1.0 {
-			ptsStr := strconv.FormatFloat(pts, 'f', 5, 64)
+			ptsStr := strconv.FormatFloat(pts, 'f', 4, 64)
 			pts, _ = strconv.ParseFloat(ptsStr, 64)
 			return pts
 		} else if pts > start {
@@ -120,11 +120,10 @@ func (video Video) getFramesAndFps() (float64, int){
 	return fps, frames
 }
 
-func (video Video) seekNewStartingFrame(startTime int64) float64 {
+func (video Video) seekFrame(time int64) float64 {
 	fps, frames := video.getFramesAndFps()
-	newStart := searchStartPts(fps, frames, float64(startTime))
-	Logger.Errorf("New Start %f", newStart)
-	return newStart
+	newTime := searchPts(fps, frames, float64(time))
+	return newTime
 }
 
 func pullVideoStats(videoPath string) (width int, height int, duration int, aspectRatio string) {
@@ -211,8 +210,9 @@ func (video *Video) Trim(startTime int64, endTime int64) (modifiedVideo *Video){
 		Logger.Error("Start time cannot be bigger than end time")
 		return &Video{}
 	}
-	newStart := video.seekNewStartingFrame(startTime)
-	video.args.addArg("-filter_complex", fmt.Sprintf(`trim=start=%f:end=%d`, newStart, endTime))
+	newStart := video.seekFrame(startTime)
+	newEnd := video.seekFrame(endTime)
+	video.args.addArg("-filter_complex", fmt.Sprintf(`trim=start=%.5f:end=%.5f`, newStart, newEnd))
 	return video
 }
 
