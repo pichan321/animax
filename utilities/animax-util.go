@@ -210,7 +210,7 @@ func Skipper(video animax.Video, skipDuration float64, skipInterval float64, out
 	}
 	logger.Infof("Video: %s | Path: %s | Completed concatenation in working directory %s", video.FileName, video.FilePath, workingDir)
 	logger.Infof("Video: %s | Path: %s | Cleaning up working directory %s", video.FileName, video.FilePath, workingDir)
-	// defer os.RemoveAll(workingDir)
+	defer os.RemoveAll(workingDir)
 	return nil
 }
 

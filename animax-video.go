@@ -3,6 +3,7 @@ package animax
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,6 +67,64 @@ func contains(format string) bool {
 	return false
 }
 
+func calculatePts(n int, fps float64) float64 {
+	return float64(n) / fps
+}
+
+func searchStartPts(fps float64, frames int, start float64) float64 {
+	low, high := 1, frames
+	for low <= high {
+		mid := (low + high) / 2
+		pts := calculatePts(mid, fps)
+		if math.Abs(pts-start) <= 1.0 {
+			ptsStr := strconv.FormatFloat(pts, 'f', 5, 64)
+			pts, _ = strconv.ParseFloat(ptsStr, 64)
+			return pts
+		} else if pts > start {
+			high = mid - 1
+		} else {
+			low = mid + 1
+		}
+	}
+
+	return -1
+}
+
+func (video Video) getFramesAndFps() (float64, int){
+	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "stream=nb_frames,avg_frame_rate", "-of", "default=noprint_wrappers=1", video.FilePath)
+	output, _ := cmd.CombinedOutput()
+	outputLines := strings.Split(string(output), "\n")
+
+	var fps float64 = -1
+	var frames int = 0
+	for _, line := range outputLines {
+		if strings.HasPrefix(line, "avg_frame_rate") && fps == -1 {
+			fpsStr := strings.ReplaceAll(strings.Split(line, "=")[1], "\r", "")
+			fpsParts := strings.Split(fpsStr, "/")
+			if len(fpsParts) == 2 {
+				numerator, _ := strconv.ParseFloat(fpsParts[0], 64)
+				denominator, _ := strconv.ParseFloat(fpsParts[1], 64)
+				if denominator != 0 {
+					fps = numerator / denominator
+				}
+			}
+		}
+		if strings.HasPrefix(line, "nb_frames") && frames == 0 {
+			framesStr := strings.ReplaceAll(strings.Split(line, "=")[1], "\r", "")
+			framesValue, err := strconv.ParseInt(framesStr, 10, 64)
+			if err == nil {
+				frames = int(framesValue)
+			}
+		}
+	}
+	return fps, frames
+}
+
+func (video Video) getNewStartingFrame(startTime int64) float64 {
+	// fps, frames := video.getFramesAndFps()
+
+}
+
 func pullVideoStats(videoPath string) (width int, height int, duration int, aspectRatio string) {
 	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "stream=width,height,duration,display_aspect_ratio", "-of", "default=noprint_wrappers=1", videoPath)
 	output, _ := cmd.CombinedOutput()
@@ -74,16 +133,23 @@ func pullVideoStats(videoPath string) (width int, height int, duration int, aspe
 		return -1, -1, -1, ""
 	}
 
-	width, _ = strconv.Atoi(strings.TrimSuffix(strings.Split(outputLines[0], "=")[1], "\r"))
-	height, _ = strconv.Atoi(strings.TrimSuffix(strings.Split(outputLines[1], "=")[1], "\r"))
-	aspectRatio = strings.TrimSuffix(strings.Split(outputLines[2], "=")[1], "\r")
-	duration = -1
-	duration, _ = strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(outputLines[3], "=")[1], "\r"), ".")[0])
-	if strings.HasPrefix(outputLines[4], "duration") {
-		var err error
-		duration, err = strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(outputLines[4], "=")[1], "\r"), ".")[0])
-		if err != nil {
-			duration, _ = strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(outputLines[3], "=")[1], "\r"), ".")[0])
+	for _, v :=range outputLines {
+		switch strings.Split(v, "=")[0] {
+			case "width":
+				width, _ = strconv.Atoi(strings.TrimSuffix(strings.Split(v, "=")[1], "\r"))
+			case "height":
+				height, _ = strconv.Atoi(strings.TrimSuffix(strings.Split(v, "=")[1], "\r"))
+			case "duration":
+				duration, _ = strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(v, "=")[1], "\r"), ".")[0])
+				if strings.HasPrefix(v, "duration") {
+					var err error
+					duration, err = strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(v, "=")[1], "\r"), ".")[0])
+					if err != nil {
+						duration, _ = strconv.Atoi(strings.Split(strings.TrimSuffix(strings.Split(v, "=")[1], "\r"), ".")[0])
+					}
+				}
+			case "display_aspect_ratio":
+				aspectRatio = strings.TrimSuffix(strings.Split(outputLines[2], "=")[1], "\r")
 		}
 	}
 

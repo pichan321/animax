@@ -39,6 +39,4 @@ Emails:
 
 - pichsereyvattanchan@gmail.com
 
-**Pichsereyvattana Chan** (ចាន់​​ ពេជ្រសិរីវឌ្ឍនា)
-Computer Science 24'
-Ithaca College
+**Pichsereyvattana Chan**
