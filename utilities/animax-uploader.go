@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -71,7 +70,7 @@ func UploadToFacebookReelPage(upload PageUpload) error {
 	if err != nil {return err}
 	response, err := client.Do(req)
 	if err != nil {return err}
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	if err != nil {return err}
 
 	bodyMap := make(map[string]interface{})
@@ -92,7 +91,7 @@ func UploadToFacebookReelPage(upload PageUpload) error {
 		return errors.New("unable to read file content")
 	}
 
-	fileContent, err := ioutil.ReadAll(file)
+	fileContent, err := io.ReadAll(file)
 	if err != nil {
 		return errors.New("unable to read file content")
 	} 
@@ -105,7 +104,7 @@ func UploadToFacebookReelPage(upload PageUpload) error {
 	response, err = client.Do(req)
 	if err != nil {return err}
 
-	body, err = ioutil.ReadAll(response.Body)
+	body, err = io.ReadAll(response.Body)
 	if err != nil {return err}
 
 	bodyMap = make(map[string]interface{})
@@ -129,7 +128,7 @@ func UploadToFacebookReelPage(upload PageUpload) error {
 	response, err = client.Do(req)
 	if err != nil {return err}
 
-	body, err = ioutil.ReadAll(response.Body)
+	body, err = io.ReadAll(response.Body)
 	if err != nil {return err}
 
 	bodyMap = make(map[string]interface{})
@@ -173,7 +172,7 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 	if err != nil {return err}
 	response, err := client.Do(req)
 	if err != nil {return err}
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
@@ -262,7 +261,7 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 		response, err = client.Do(req)
 		if err != nil {return err}
 
-		body, err = ioutil.ReadAll(response.Body)
+		body, err = io.ReadAll(response.Body)
 		if err != nil {return err}
 
 		bodyMap = make(map[string]interface{})
