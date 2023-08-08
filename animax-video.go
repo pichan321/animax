@@ -77,7 +77,7 @@ func searchPts(fps float64, frames int, start float64) float64 {
 		mid := (low + high) / 2
 		pts := calculatePts(mid, fps)
 		if math.Abs(pts-start) <= 1.0 {
-			ptsStr := strconv.FormatFloat(pts, 'f', 4, 64)
+			ptsStr := strconv.FormatFloat(pts, 'f', 5, 64)
 			pts, _ = strconv.ParseFloat(ptsStr, 64)
 			return pts
 		} else if pts > start {
@@ -89,6 +89,7 @@ func searchPts(fps float64, frames int, start float64) float64 {
 
 	return -1
 }
+
 
 func (video Video) getFramesAndFps() (float64, int){
 	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "stream=nb_frames,avg_frame_rate", "-of", "default=noprint_wrappers=1", video.FilePath)
@@ -120,9 +121,10 @@ func (video Video) getFramesAndFps() (float64, int){
 	return fps, frames
 }
 
-func (video Video) seekFrame(time int64) float64 {
+func (video Video) SeekFrame(time int64) float64 {
 	fps, frames := video.getFramesAndFps()
 	newTime := searchPts(fps, frames, float64(time))
+	if newTime == -1 {return float64(time)}
 	return newTime
 }
 
@@ -210,9 +212,8 @@ func (video *Video) Trim(startTime int64, endTime int64) (modifiedVideo *Video){
 		Logger.Error("Start time cannot be bigger than end time")
 		return &Video{}
 	}
-	newStart := video.seekFrame(startTime)
-	newEnd := video.seekFrame(endTime)
-	video.args.addArg("-filter_complex", fmt.Sprintf(`trim=start=%.5f:end=%.5f`, newStart, newEnd))
+
+	video.args.addArg("-filter_complex", fmt.Sprintf(`trim=start=%d:end=%d`, startTime, endTime))
 	return video
 }
 
@@ -287,7 +288,7 @@ func shouldProcessFilterComplex(filterComplex []string, inputPath string) ([]str
 	if len(filterComplex) == 1 && strings.HasPrefix(filterComplex[0], "trim=") {
 		startTime := strings.Split(strings.Split(filterComplex[0], "start=")[1], ":end=")[0]
 		endTime := strings.Split(filterComplex[0], ":end=")[1]
-		return []string{"-ss", startTime, "-to", endTime, "-i", inputPath,  "-c", "copy"}, false
+		return []string{"-i", inputPath, "-ss", startTime, "-to", endTime, "-c:v", "libx264"}, false
 	}
 	return []string{}, true
 }

@@ -280,7 +280,7 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 			cancel()
 			return errors.New("upload expired")
 		default: 
-			animax.Logger.Infof("Uploading in progress: %f %", float64(startOffset)*100/float64(fileInfo.Size()))
+			animax.Logger.Infof("Uploading in progress: %f %%", float64(startOffset)*100/float64(fileInfo.Size()))
 		}
 
 		if (startOffset >= endOffset) {
@@ -315,7 +315,7 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 		return err
 	}
 
-	_, err = ioutil.ReadAll(response.Body)
+	_, err = io.ReadAll(response.Body)
 	if err != nil {
 		cancel()
 		return err
