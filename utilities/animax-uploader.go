@@ -2,7 +2,6 @@ package animax
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/pichan321/animax"
 )
@@ -198,19 +196,20 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 	if !ok {
 		return errors.New("unable to read file content")
 	}
-	background := context.Background()
-	deadline, cancel := context.WithDeadline(background, time.Now().Add(time.Hour * 1))
+	// background := context.Background()
+	// deadline, cancel := context.WithDeadline(background, time.Now().Add(time.Hour * 1))
 	for {
 		buffer := make([]byte, endOffset - startOffset)
 		n, err := file.Read(buffer)
-		if err != nil || n == 0 {
+		if n == 0 {break}
+		if err != nil {
 			if err == io.EOF {
 				break
 			}
-			cancel()
+			// cancel()
 			return err
 		}
-
+		animax.Logger.Errorf("Reading %d bytes", n)
 		bodyMulti := &bytes.Buffer{}
 		writer := multipart.NewWriter(bodyMulti)
 
@@ -219,27 +218,28 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 			fmt.Printf("Failed to create form file: %v\n", err)
 
 		}
-		n, err = videoPart.Write(buffer[:n])
-		if err != nil {
-			fmt.Println("Error writing to multipart")
+		nCopy, err := io.Copy(videoPart, bytes.NewBuffer(buffer[:n]))
+		animax.Logger.Errorf("Writing %d bytes", n)
+		if err != nil || nCopy == 0 {
+			animax.Logger.Error("Error writing to multipart")
 		}
 
 
 		err = writer.WriteField("upload_phase", "transfer")
 		if err != nil {
-			fmt.Println(err.Error())
+			animax.Logger.Error(err.Error())
 		}
 		err = writer.WriteField("access_token", upload.Token)
 		if err != nil {
-			fmt.Println(err.Error())
+			animax.Logger.Error(err.Error())
 		}
 		err = writer.WriteField("upload_session_id", sessionId)
 		if err != nil {
-			fmt.Println(err.Error())
+			animax.Logger.Error(err.Error())
 		}
 		err = writer.WriteField("start_offset", fmt.Sprintf("%d", startOffset))
 		if err != nil {
-			fmt.Println(err.Error())
+			animax.Logger.Error(err.Error())
 		}
 
 		// Close the multipart writer
@@ -274,23 +274,26 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 		endOffset, err = strconv.ParseInt(bodyMap["end_offset"].(string), 10, 64) 
 		if err != nil {return err}
 
-		select {
-		case <-deadline.Done():
-			cancel()
-			return errors.New("upload expired")
-		default: 
-			animax.Logger.Infof("Uploading in progress: %f %%", float64(startOffset)*100/float64(fileInfo.Size()))
-		}
+		animax.Logger.Warnf("Start: %d, End: %d", startOffset, endOffset)
+		// select {
+		// case <-deadline.Done():
+		// 	cancel()
+		// 	return errors.New("upload expired")
+		// default: 
+		// 	animax.Logger.Infof("Uploading in progress: %f %%", float64(startOffset)*100/float64(fileInfo.Size()))
+		// }
 
-		if (startOffset >= endOffset) {
+		animax.Logger.Warn("Loop running")
+		if startOffset >= endOffset || startOffset >= fileInfo.Size() {
 			break
 		}
 	}
 	
 	
+	animax.Logger.Warn("Loop exited")
 	publishUrl, err := url.Parse(fmt.Sprintf(`https://graph-video.facebook.com/v17.0/%s/videos`, upload.PageId))
 	if err != nil {
-		cancel()
+		// cancel()
 		return err
 	}
 
@@ -304,26 +307,26 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 
 	req, err = http.NewRequest("POST", publishUrl.String(), nil)
 	if err != nil {
-		cancel()
+		// cancel()
 		return err
 	}
 
 	response, err = client.Do(req)
 	if err != nil {
-		cancel()
+		// cancel()
 		return err
 	}
 
-	_, err = io.ReadAll(response.Body)
+	body, err = io.ReadAll(response.Body)
 	if err != nil {
-		cancel()
+		// cancel()
 		return err
 	}
 
-	animax.Logger.Infof("Upload published")
+	animax.Logger.Infof("Upload published: %s", body)
 
 	defer file.Close()
-	defer cancel()
+	// defer cancel()
 	defer response.Body.Close()
 	return nil
 }
