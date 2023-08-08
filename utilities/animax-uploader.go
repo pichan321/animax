@@ -203,7 +203,7 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 	for {
 		buffer := make([]byte, endOffset - startOffset)
 		n, err := file.Read(buffer)
-		if err != nil {
+		if err != nil || n == 0 {
 			if err == io.EOF {
 				break
 			}
