@@ -72,8 +72,10 @@ func UploadToFacebookReelPage(upload PageUpload) error {
 	if err != nil {return err}
 
 	bodyMap := make(map[string]interface{})
+	
 	err = json.Unmarshal(body, &bodyMap)
 	if err != nil {return err}
+	if bodyMap == nil {return errors.New("invalid body response from Facebook")}
 
 	uploadUrl := bodyMap["upload_url"].(string)
 	videoId := bodyMap["video_id"].(string)
@@ -179,6 +181,7 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 	if err != nil {
 		return err
 	}
+	if bodyMap == nil {return errors.New("invalid body response from Facebook")}
 
 	sessionId := bodyMap["upload_session_id"].(string)
 	var startOffset int64 = 0
@@ -201,6 +204,7 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 	for {
 		buffer := make([]byte, endOffset - startOffset)
 		n, err := file.Read(buffer)
+		animax.Logger.Errorf("Reading %d bytes", n)
 		if n == 0 {break}
 		if err != nil {
 			if err == io.EOF {
@@ -209,7 +213,7 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 			// cancel()
 			return err
 		}
-		animax.Logger.Errorf("Reading %d bytes", n)
+	
 		bodyMulti := &bytes.Buffer{}
 		writer := multipart.NewWriter(bodyMulti)
 
