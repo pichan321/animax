@@ -75,7 +75,12 @@ func UploadToFacebookReelPage(upload PageUpload) error {
 	
 	err = json.Unmarshal(body, &bodyMap)
 	if err != nil {return err}
-	if bodyMap == nil {return errors.New("invalid body response from Facebook")}
+	if _, ok := bodyMap["upload_url"]; !ok {
+		return errors.New("invalid body response from Facebook")
+	}
+	if _, ok := bodyMap["video_id"]; !ok {
+		return errors.New("invalid body response from Facebook")
+	}
 
 	uploadUrl := bodyMap["upload_url"].(string)
 	videoId := bodyMap["video_id"].(string)
@@ -105,11 +110,14 @@ func UploadToFacebookReelPage(upload PageUpload) error {
 	if err != nil {return err}
 
 	body, err = io.ReadAll(response.Body)
+	fmt.Println("Body" + string(body))
+	fmt.Printf("Body length %d\n",  len(body))
 	if err != nil {return err}
 
 	bodyMap = make(map[string]interface{})
 	err = json.Unmarshal(body, &bodyMap)
 	if err != nil {return err}
+	if bodyMap == nil {return errors.New("invalid body response from Facebook")}
 
 	requestUrl, err = url.Parse(fmt.Sprintf(`https://graph.facebook.com/v13.0/%s/video_reels`, upload.PageId))
 	if err != nil {return err}
@@ -129,11 +137,14 @@ func UploadToFacebookReelPage(upload PageUpload) error {
 	if err != nil {return err}
 
 	body, err = io.ReadAll(response.Body)
+	fmt.Println("Body" + string(body))
+	fmt.Printf("Body length %d\n",  len(body))
 	if err != nil {return err}
 
 	bodyMap = make(map[string]interface{})
 	err = json.Unmarshal(body, &bodyMap)
 	if err != nil {return err}
+	if bodyMap == nil {return errors.New("invalid body response from Facebook")}
 
 	defer file.Close()
 	defer response.Body.Close()
@@ -182,6 +193,13 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 		return err
 	}
 	if bodyMap == nil {return errors.New("invalid body response from Facebook")}
+	if _, ok := bodyMap["upload_session_id"]; !ok {
+		return errors.New("invalid body response from Facebook")
+	}
+	if _, ok := bodyMap["end_offset"]; !ok {
+		return errors.New("invalid body response from Facebook")
+	}
+
 
 	sessionId := bodyMap["upload_session_id"].(string)
 	var startOffset int64 = 0
@@ -271,7 +289,14 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 		bodyMap = make(map[string]interface{})
 		err = json.Unmarshal(body, &bodyMap)
 		if err != nil {return err}
-
+		if bodyMap == nil {return errors.New("invalid body response from Facebook")}
+		if _, ok := bodyMap["start_offset"]; !ok {
+			return errors.New("invalid body response from Facebook")
+		}
+		if _, ok := bodyMap["end_offset"]; !ok {
+			return errors.New("invalid body response from Facebook")
+		}
+	
 		startOffset, err = strconv.ParseInt(bodyMap["start_offset"].(string), 10, 64) 
 		if err != nil {return err}
 
@@ -292,7 +317,6 @@ func UploadToFacebookVideoPage(upload PageUpload) error {
 			break
 		}
 	}
-	
 	
 	animax.Logger.Warn("Loop exited")
 	publishUrl, err := url.Parse(fmt.Sprintf(`https://graph-video.facebook.com/v17.0/%s/videos`, upload.PageId))
