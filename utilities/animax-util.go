@@ -166,7 +166,7 @@ func ConcatenateVideosFromDir(directoryPath string, encode bool, outputPath stri
 	return nil
 }
 
-func TrimNoEncode(video animax.Video, startTime int64, endTime int64, outputString string) error {
+func TrimNoEncode(video animax.Video, startTime int64, endTime int64, outputString string) (animax.Video, error) {
 	newStart := video.SeekFrame(startTime)
 	newEnd := video.SeekFrame(endTime)
 	if newStart == -1 {newStart = float64(startTime)}
@@ -174,9 +174,14 @@ func TrimNoEncode(video animax.Video, startTime int64, endTime int64, outputStri
 	cmd := exec.Command("ffmpeg", "-ss", fmt.Sprintf("%.5f", newStart), "-to", fmt.Sprintf("%.5f", newEnd), "-i", video.FilePath, "-c", "copy", outputString)
 	_, err := cmd.CombinedOutput()
 	if err != nil {
-		return errors.New("unable to trim the video")
+		return animax.Video{}, errors.New("unable to trim the video")
 	}
-	return nil
+
+	outputVideo, err := animax.LoadVideo(outputString)
+	if err != nil {
+		return animax.Video{}, errors.New("unexpected error")
+	}
+	return outputVideo, nil
 }
 
 func Skipper(video animax.Video, skipDuration float64, skipInterval float64, outputPath string) error {
@@ -213,7 +218,8 @@ func Skipper(video animax.Video, skipDuration float64, skipInterval float64, out
 			break
 		}
 
-		video = originalVideo.Trim(int64(start), int64(end)).Render(clipName, animax.VIDEO_ENCODINGS.Best)
+		video, _ = TrimNoEncode(originalVideo, int64(start), int64(end), clipName)
+		// video = originalVideo.Trim(int64(start), int64(end)).Render(clipName, animax.VIDEO_ENCODINGS.Best)
 		clipsToConcat = append(clipsToConcat, video)
 		logger.Infof("Video: %s | Path: %s | Subclip %s generated", video.FileName, video.FilePath, clipName)
 		index++
