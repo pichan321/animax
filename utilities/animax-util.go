@@ -169,7 +169,7 @@ func ConcatenateVideosFromDir(directoryPath string, encode bool, outputPath stri
 func TrimNoEncode(video animax.Video, startTime int64, endTime int64, outputString string) (animax.Video, error) {
 	newStart := video.SeekFrame(startTime)
 	if newStart == -1 {newStart = float64(startTime)}
-	cmd := exec.Command("ffmpeg", "-ss", fmt.Sprintf("%.5f", newStart), "-to", fmt.Sprintf("%d", endTime), "-i", video.FilePath, "-c", "copy", outputString)
+	cmd := exec.Command("ffmpeg", "-i", video.FilePath, "-ss", fmt.Sprintf("%.5f", newStart), "-to", fmt.Sprintf("%d", endTime), "-c", "copy", outputString)
 	_, err := cmd.CombinedOutput()
 	if err != nil {
 		return animax.Video{}, errors.New("unable to trim the video")
@@ -219,7 +219,7 @@ func Skipper(video animax.Video, skipDuration float64, skipInterval float64, out
 		video, _ = TrimNoEncode(originalVideo, int64(start), int64(end), clipName)
 		// video = originalVideo.Trim(int64(start), int64(end)).Render(clipName, animax.VIDEO_ENCODINGS.Best)
 		clipsToConcat = append(clipsToConcat, video)
-		logger.Infof("Video: %s | Path: %s | Subclip %s generated", video.FileName, video.FilePath, clipName)
+		logger.Infof("Video: %s | Start: %f | End: %f |Path: %s | Subclip %s generated", video.FileName, start, end, video.FilePath, clipName)
 		index++
 		nextFrameToSkip = end + skipDuration
 
