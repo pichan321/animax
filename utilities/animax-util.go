@@ -105,8 +105,7 @@ func ConcatenateVideos(videos []animax.Video, encode bool, outputPath string) (e
 		cmd := exec.Command("ffmpeg", "-f", "concat", "-i", inputTextFileName, "-c:v", "libx264", "-c:a", "aac", outputPath)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			logger := animax.GetLogger()
-			logger.Info(fmt.Sprintf(`Error: %s`, string(output)))
+			animax.Logger.Info(fmt.Sprintf(`Error: %s`, string(output)))
 			return err
 		}
 		return nil
@@ -115,30 +114,27 @@ func ConcatenateVideos(videos []animax.Video, encode bool, outputPath string) (e
 	cmd := exec.Command("ffmpeg", "-f", "concat", "-i", inputTextFileName, "-c:v", "copy", "-c:a", "copy", outputPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		logger := animax.GetLogger()
-		logger.Info(fmt.Sprintf(`Error: %s`, string(output)))
+		animax.Logger.Info(fmt.Sprintf(`Error: %s`, string(output)))
 		return err
 	}
 	return nil
 }
 
 func ConcatenateVideosFromDir(directoryPath string, encode bool, outputPath string) error {
-	logger := animax.GetLogger()
-
 	dir, err := os.Stat(directoryPath); 
 	if os.IsNotExist(err) {
-		logger.Errorf("%s does not exist", directoryPath)
+		animax.Logger.Errorf("%s does not exist", directoryPath)
 		return errors.New("path does not exist")
 	}
 
 	if !dir.IsDir() {
-		logger.Error("Invalid directoryPath specified")
+		animax.Logger.Error("Invalid directoryPath specified")
 		return errors.New("invalid directory path")
 	}
 
 	filesInDir, err :=os.ReadDir(directoryPath)
 	if err != nil {
-		logger.Errorf("Could not read files from directory %s", directoryPath)
+		animax.Logger.Errorf("Could not read files from directory %s", directoryPath)
 		return err
 	}
 	
@@ -149,17 +145,17 @@ func ConcatenateVideosFromDir(directoryPath string, encode bool, outputPath stri
 		if extension == ".mp4" {
 			video, err := animax.LoadVideo(videoPath)
 			if err != nil {
-				logger.Info(fmt.Sprintf(`file: %s is used in concatenation since it is not a video`, filepath.Base(videoPath)))
+				animax.Logger.Info(fmt.Sprintf(`file: %s is used in concatenation since it is not a video`, filepath.Base(videoPath)))
 				continue
 			}
-			logger.Infof("Appending %s for video concatenation", file.Name())
+			animax.Logger.Infof("Appending %s for video concatenation", file.Name())
 			videosInDir = append(videosInDir, video)
 		}
 	}
 
 	err = ConcatenateVideos(videosInDir, false, outputPath)
 	if err != nil {
-		logger.Errorf("Error during concatenation phase | %s", err)
+		animax.Logger.Errorf("Error during concatenation phase | %s", err)
 		return err
 	}
 
@@ -183,8 +179,6 @@ func TrimNoEncode(video animax.Video, startTime int64, endTime int64, outputStri
 }
 
 func Skipper(video animax.Video, skipDuration float64, skipInterval float64, outputPath string) error {
-	logger := animax.GetLogger()
-
 	nextFrameToSkip := 0.0
 	workingDir := uuid.New().String()
 
@@ -195,7 +189,7 @@ func Skipper(video animax.Video, skipDuration float64, skipInterval float64, out
 	originalVideoPath := video.FilePath
 	index := 0
 	clipsToConcat := []animax.Video{}
-	logger.Infof("Video: %s | Path: %s | Initiating skipper", video.FileName, video.FilePath)
+	animax.Logger.Infof("Video: %s | Path: %s | Initiating skipper", video.FileName, video.FilePath)
 	for i := 0.0; i < float64(videoDuration); i++ {
 		currentFrame := i
 
@@ -211,32 +205,32 @@ func Skipper(video animax.Video, skipDuration float64, skipInterval float64, out
 		clipName := fmt.Sprintf(`%s/%d.mp4`, workingDir, index)
 		originalVideo, err := animax.LoadVideo(originalVideoPath)
 		if err != nil {
-			logger.Errorf("Video: %s | Path: %s | Error reading file", originalVideo.FileName, originalVideo.FilePath)
-			logger.Infof("Video: %s | Path: %s | Exiting skipper loop", originalVideo.FileName, originalVideo.FilePath)
+			animax.Logger.Errorf("Video: %s | Path: %s | Error reading file", originalVideo.FileName, originalVideo.FilePath)
+			animax.Logger.Infof("Video: %s | Path: %s | Exiting skipper loop", originalVideo.FileName, originalVideo.FilePath)
 			break
 		}
 
 		video, _ = TrimNoEncode(originalVideo, int64(start), int64(end), clipName)
 		// video = originalVideo.Trim(int64(start), int64(end)).Render(clipName, animax.VIDEO_ENCODINGS.Best)
 		clipsToConcat = append(clipsToConcat, video)
-		logger.Infof("Video: %s | Start: %f | End: %f |Path: %s | Subclip %s generated", video.FileName, start, end, video.FilePath, clipName)
+		animax.Logger.Infof("Video: %s | Start: %f | End: %f |Path: %s | Subclip %s generated", video.FileName, start, end, video.FilePath, clipName)
 		index++
 		nextFrameToSkip = end + skipDuration
 
 		if nextFrameToSkip > float64(videoDuration) {
-			logger.Infof("Video: %s | Path: %s | Exiting skipper loop", originalVideo.FileName, originalVideo.FilePath)
+			animax.Logger.Infof("Video: %s | Path: %s | Exiting skipper loop", originalVideo.FileName, originalVideo.FilePath)
 			break
 		}
 	}
 
-	logger.Infof("Video: %s | Path: %s | Concatenating all clips in working directory %s", video.FileName, video.FilePath, workingDir)
+	animax.Logger.Infof("Video: %s | Path: %s | Concatenating all clips in working directory %s", video.FileName, video.FilePath, workingDir)
 	err := ConcatenateVideos(clipsToConcat, true, outputPath)
 	if err != nil {
-		logger.Error("Error during concatenation")
+		animax.Logger.Error("Error during concatenation")
 		return err
 	}
-	logger.Infof("Video: %s | Path: %s | Completed concatenation in working directory %s", video.FileName, video.FilePath, workingDir)
-	logger.Infof("Video: %s | Path: %s | Cleaning up working directory %s", video.FileName, video.FilePath, workingDir)
+	animax.Logger.Infof("Video: %s | Path: %s | Completed concatenation in working directory %s", video.FileName, video.FilePath, workingDir)
+	animax.Logger.Infof("Video: %s | Path: %s | Cleaning up working directory %s", video.FileName, video.FilePath, workingDir)
 	defer os.RemoveAll(workingDir)
 	return nil
 }

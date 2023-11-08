@@ -249,8 +249,7 @@ func (video *Video) CropOutRight(pixels int64) (modifiedVideo *Video) {
 
 func (video *Video) Blur(intensity int16) (modifiedVideo *Video) {
 	if (intensity < 0 || intensity > 50) {
-		logger := GetLogger()
-		logger.Warn("Blur intensity should be between 0 and 50")
+		Logger.Warn("Blur intensity should be between 0 and 50")
 		return &Video{}
 	}
  	video.args.addArg("-filter_complex", fmt.Sprintf(`boxblur=%d`, intensity))
@@ -284,21 +283,17 @@ func secondsToHMS(seconds int) string {
 	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)
 }
 
-func shouldProcessFilterComplex(filterComplex []string, inputPath string) ([]string, bool) {
-	if len(filterComplex) == 1 && strings.HasPrefix(filterComplex[0], "trim=") {
-		startTime := strings.Split(strings.Split(filterComplex[0], "start=")[1], ":end=")[0]
-		endTime := strings.Split(filterComplex[0], ":end=")[1]
-		return []string{"-i", inputPath, "-ss", startTime, "-to", endTime, "-c:v", "libx264"}, false
-	}
-	return []string{}, true
-}
+// func shouldProcessFilterComplex(filterComplex []string, inputPath string) ([]string, bool) {
+// 	if len(filterComplex) == 1 && strings.HasPrefix(filterComplex[0], "trim=") {
+// 		startTime := strings.Split(strings.Split(filterComplex[0], "start=")[1], ":end=")[0]
+// 		endTime := strings.Split(filterComplex[0], ":end=")[1]
+// 		return []string{"-i", inputPath, "-ss", startTime, "-to", endTime, "-c:v", "libx264"}, false
+// 	}
+// 	return []string{}, true
+// }
 
 func (video Video) queryBuilder(inputPath string, outputPath string, videoEncoding string) []string {
 	query := []string{"ffmpeg", "-i", video.FilePath, }
-
-	// if reflect.TypeOf(v).Name() == "string" {
-	// 	// query = append(query, v)
-	// }
 
 	if len(video.args["-aspect"]) > 0 {
 		query = append(query, []string{"-aspect", video.args["-aspect"][0]}...)
@@ -310,12 +305,10 @@ func (video Video) queryBuilder(inputPath string, outputPath string, videoEncodi
 	
 	tag := ""
 	output := []string{}
-	newTrimCmd, shouldProcess := shouldProcessFilterComplex(video.args["-filter_complex"], inputPath)
-	if len(video.args["-filter_complex"]) > 0 && shouldProcess {
+	if len(video.args["-filter_complex"]) > 0 {
 		query = append(query, "-filter_complex")
 		filter := ""
-		//create a helper function that returns output
-		// current := ""
+
 		for index, val := range video.args["-filter_complex"] {
 			if index == 0 && strings.HasPrefix("trim=", val)  {
 				tag = uuid.New().String()[0:4]
@@ -339,27 +332,6 @@ func (video Video) queryBuilder(inputPath string, outputPath string, videoEncodi
 			output = []string{"-map", "[" + tag + "]", "-map", "0:a", "-c:v", videoEncoding, outputPath}
 		}
 	}
-
-	if !shouldProcess && len(video.args["-filter:a"]) == 0 {
-		output = append(newTrimCmd, outputPath)
-		query = append([]string{"ffmpeg", }, output...)
-		return query
-	}
-
-	if !shouldProcess && len(video.args["-filter:a"]) == 1 {
-		newTrimCmd = append(newTrimCmd[0:len(newTrimCmd)-2], []string{"-c:v", VIDEO_ENCODINGS.Best}...)
-		output = append(newTrimCmd, outputPath)
-		query = append(query, output...)
-		return query
-	}
-
-	if len(output) == 0 {
-		output = []string{"-c:v", VIDEO_ENCODINGS.Best, outputPath}
-
-	}
-	logger := GetLogger()
-	logger.Info("Final output " + strings.Join(output, " "))
-
 	query = append(query, output...)
 	// query = append(query, []string{"-c:v", "copy", "-c:a", "copy", outputPath}...)
 	// query = append(query, []string{outputPath}...)
@@ -380,11 +352,11 @@ func (video Video) Render(outputPath string, videoEncoding string) (outputVideo 
 
 	query := video.queryBuilder(video.FilePath, outputPath, videoEncoding)
 	cmd := exec.Command(query[0], query[1:]...)
-	logger := GetLogger()
-	logger.Info("Command to be executed: " + cmd.String())
+
+	Logger.Info("Command to be executed: " + cmd.String())
 	_, err = cmd.Output()
 	if err != nil {
-		logger.Error(err.Error())
+		Logger.Error(err.Error())
 		return Video{}
 	}
 
@@ -393,7 +365,7 @@ func (video Video) Render(outputPath string, videoEncoding string) (outputVideo 
 	fileInterface, err = LoadVideo(outputPath)
 	outputVideo = fileInterface.(Video)
 	if err != nil {
-		logger.Error(fmt.Sprintf("outputVideo: %s cannot be loaded.", outputPath))
+		Logger.Error(fmt.Sprintf("outputVideo: %s cannot be loaded.", outputPath))
 		return Video{}
 	}
 	return outputVideo
