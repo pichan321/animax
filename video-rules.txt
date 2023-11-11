@@ -1,4 +1,0 @@
-filter_complex
-ss
-filter:v|filter:a
-vf|va
