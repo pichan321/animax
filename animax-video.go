@@ -275,6 +275,14 @@ func (video *Video) MuteAudio() (modifiedVideo *Video) {
 	return video
 }
 
+/**
+*  
+*/
+func (video *Video) Saturate(multiplier float64) (modifiedVideo *Video) {
+	video.args.addArg("-vf", fmt.Sprintf("eq=saturation=%f", multiplier))
+	return video
+}
+
 func secondsToHMS(seconds int) string {
 	hours := seconds / 3600
 	minutes := (seconds % 3600) / 60
@@ -294,6 +302,10 @@ func secondsToHMS(seconds int) string {
 
 func (video Video) queryBuilder(inputPath string, outputPath string, videoEncoding string) []string {
 	query := []string{"ffmpeg", "-i", video.FilePath, }
+
+	if len(video.args["-vf"]) > 0 {
+		query = append(query, []string{"-vf", video.args["-vf"][0]}...)
+	}
 
 	if len(video.args["-aspect"]) > 0 {
 		query = append(query, []string{"-aspect", video.args["-aspect"][0]}...)
@@ -331,6 +343,11 @@ func (video Video) queryBuilder(inputPath string, outputPath string, videoEncodi
 		} else {
 			output = []string{"-map", "[" + tag + "]", "-map", "0:a", "-c:v", videoEncoding, outputPath}
 		}
+	}
+
+	if len(output) == 0 {
+		output = []string{"-c:v", VIDEO_ENCODINGS.Best, outputPath}
+
 	}
 	query = append(query, output...)
 	// query = append(query, []string{"-c:v", "copy", "-c:a", "copy", outputPath}...)
