@@ -262,9 +262,9 @@ func (video *Video) NewAspectRatio(aspectRatio float32) (modifiedVideo *Video) {
 	return video
 }
 
-func (video *Video) NewAspectRatioPadAuto(aspectRatio float32) (modifiedVideo *Video) {
-	return video
-}
+// func (video *Video) NewAspectRatioPadAuto(aspectRatio float32) (modifiedVideo *Video) {
+// 	return video
+// }
 
 func (video *Video) ChangeVolume(multiplier float64) (modifiedVideo *Video) {
 	video.args["-filter:a"] = []string{fmt.Sprintf(`volume=%f`, multiplier)}
