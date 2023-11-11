@@ -42,10 +42,19 @@ func (graph *Graph) loadRenderRules(graphRules *[]string) {
 	}
 }
 
-func remove[T any](slice *[]T, index int) T {
+func removeAtIndex[T any](slice *[]T, index int) T {
 	item := (*slice)[index]
 	*slice = append((*slice)[:index], (*slice)[index+1:]...) 
     return item
+}
+
+func removeElement[T comparable](slice *[]T, element T) {
+	for i := 0; i < len(*slice); i++ {
+		if (*slice)[i] == element {
+			*slice = append((*slice)[:i], (*slice)[i+1:]... )
+			return
+		}
+	}
 }
 
 func processFilterComplex(args *Args) []string {
@@ -61,7 +70,7 @@ func processFilterComplex(args *Args) []string {
 		// 	continue
 		// }
 		if val.Used {continue}
-		
+
 		if index == 0  {
 			tag = uuid.New().String()[0:4]
 			filter += fmt.Sprintf(`[0]%s[%s];`, val.Value, tag)
@@ -93,6 +102,8 @@ func processFilterComplex(args *Args) []string {
 func (g *Graph) ProduceOrdering(args Args) [][]string {
 	visited := make(map[string]bool)
 	renderStages := [][]string{}
+ 
+	//keep looping unti everything has been used in redering
 	for node, _  := range g.Nodes {
 		stage := []string{}
 
@@ -105,7 +116,7 @@ func (g *Graph) ProduceOrdering(args Args) [][]string {
 			}
 
 			stage = append(stage, node)
-			subArgValue := remove(&all, 0)
+			subArgValue := removeAtIndex(&all, 0)
 			stage = append(stage, subArgValue.Value)
 
 			renderStages = append(renderStages, stage)
