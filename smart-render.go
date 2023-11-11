@@ -52,22 +52,35 @@ func processFilterComplex(args *Args) []string {
 	tag := ""
 	output := []string{"-filter_complex"}
 	filter := ""
+	set := newSet()
 
 	for index, val := range (*args)["-filter_complex"] {
-		if index == 0 && strings.HasPrefix("trim=", val.Value)  {
-			tag = uuid.New().String()[0:4]
-			filter += fmt.Sprintf(`[0]%s[%s];`, val.Value, tag)
-			continue
-		}
+		// if index == 0 && strings.HasPrefix("trim=", val.Value)  {
+		// 	tag = uuid.New().String()[0:4]
+		// 	filter += fmt.Sprintf(`[0]%s[%s];`, val.Value, tag)
+		// 	continue
+		// }
+		if val.Used {continue}
+		
 		if index == 0  {
 			tag = uuid.New().String()[0:4]
 			filter += fmt.Sprintf(`[0]%s[%s];`, val.Value, tag)
+			set.add(val.Key)
+			(*args)["-filter_complex"][index].Used = true
 			continue
 		}
+
+		if set.exists(val.Key) {continue}
+
 		filter += fmt.Sprintf(`[%s]`, tag)
 		tag = uuid.New().String()[0:4]
 		filter += fmt.Sprintf(`%s[%s];`, val.Value, tag)
+		set.add(val.Key)
+		(*args)["-filter_complex"][index].Used = true
 	}
+
+	
+	
 	output = append(output, filter[0:len(filter) - 1])
 																										//videoEncoding
 	output = append(output, []string{"-map", "[" + tag + "]", "-map", "0:a", "-c:v", "libx264"}...)
@@ -154,6 +167,29 @@ func (g Graph) PrintStages(args *Args) {
 
 }
 
-type set struct {
+type hashset struct {
 	s map[interface{}]bool
+}
+
+
+func newSet() hashset {
+	return hashset{
+		s: make(map[interface{}]bool),
+	}
+}
+
+func (set *hashset) add(key string) {
+	set.s[key] = true
+}
+
+func (set *hashset) remove(key string) {
+	delete(set.s, key)
+}
+
+func (set hashset) exists(key string) bool {
+	if _, ok := set.s[key]; ok {
+		return true
+	}
+
+	return false
 }

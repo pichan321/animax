@@ -59,6 +59,7 @@ var ASPECT_RATIOS = struct {
 type subArg struct {
 	Key string
 	Value string
+	Used bool
 }
 
 func (args Args) addArg(flag string, subArg subArg) {
