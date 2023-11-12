@@ -3,6 +3,7 @@ package animax
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -14,6 +15,7 @@ type Graph struct {
 
 var VideoGraph []string = []string{
 	"-filter_complex",
+	"-ss",
 	"-aspect",
 	"-filter:v|-filter:a",
 	"-vf|-va",
@@ -42,15 +44,15 @@ func (graph *Graph) loadRenderRules(graphRules *[]string) {
 	}
 }
 
-func removeAtIndex[T any](slice *[]T, index int) T {
-	item := (*slice)[index]
+func removeAtIndex[T any](slice *[]T, index int) {
+	if index > len(*slice) - 1 {return} 
+	// item := (*slice)[index]
 	*slice = append((*slice)[:index], (*slice)[index+1:]...) 
-    return item
 }
 
-func removeElement[T comparable](slice *[]T, element T) {
+func removeElement[T comparable](slice *[]T, element *T) {
 	for i := 0; i < len(*slice); i++ {
-		if (*slice)[i] == element {
+		if &(*slice)[i] == element {
 			*slice = append((*slice)[:i], (*slice)[i+1:]... )
 			return
 		}
@@ -62,20 +64,19 @@ func processFilterComplex(args *Args) []string {
 	output := []string{"-filter_complex"}
 	filter := ""
 	set := newSet()
-
+	toRemove := []*subArg{}
 	for index, val := range (*args)["-filter_complex"] {
 		// if index == 0 && strings.HasPrefix("trim=", val.Value)  {
 		// 	tag = uuid.New().String()[0:4]
 		// 	filter += fmt.Sprintf(`[0]%s[%s];`, val.Value, tag)
 		// 	continue
 		// }
-		if val.Used {continue}
 
 		if index == 0  {
 			tag = uuid.New().String()[0:4]
 			filter += fmt.Sprintf(`[0]%s[%s];`, val.Value, tag)
 			set.add(val.Key)
-			(*args)["-filter_complex"][index].Used = true
+			toRemove = append(toRemove, &val)
 			continue
 		}
 
@@ -85,51 +86,107 @@ func processFilterComplex(args *Args) []string {
 		tag = uuid.New().String()[0:4]
 		filter += fmt.Sprintf(`%s[%s];`, val.Value, tag)
 		set.add(val.Key)
-		(*args)["-filter_complex"][index].Used = true
+		toRemove = append(toRemove, &val)
 	}
 
 	
-	
-	output = append(output, filter[0:len(filter) - 1])
+
+	for i := 0; i < len(toRemove); i++ {
+		tempVar := (*args)["-filter_complex"]
+		fmt.Printf("Before removal: %+v\n", (*args)["-filter_complex"])
+		removeElement[subArg](&tempVar, toRemove[i] )
+		fmt.Printf("After removal: %+v\n", (*args)["-filter_complex"])
+		time.Sleep(5)
+	} 
+	// fmt.Printf("After removal %+v", (*args)["-filter_complex"])
+	// fmt.Println("Filter" + filter)
+	output = append(output, filter[0:len(filter) - 1])//filter[0:len(filter) - 1]
 																										//videoEncoding
-	output = append(output, []string{"-map", "[" + tag + "]", "-map", "0:a", "-c:v", "libx264"}...)
-	(*args)["-filter_complex"] = []subArg{}
+	output = append(output, []string{"-map", "[" + tag + "]", "-map", "0:a",}...)
+	// (*args)["-filter_complex"] = []subArg{}
 
 	return output
 }
 
-// topological sort
-func (g *Graph) ProduceOrdering(args Args) [][]string {
-	visited := make(map[string]bool)
-	renderStages := [][]string{}
- 
-	//keep looping unti everything has been used in redering
-	for node, _  := range g.Nodes {
-		stage := []string{}
-
-		all, ok := args[node]
-		if ok && !visited[node] {
-			visited[node] = true
-			if node == "-filter_complex" {
-				renderStages = append(renderStages, processFilterComplex(&args))
-				continue
-			}
-
-			stage = append(stage, node)
-			subArgValue := removeAtIndex(&all, 0)
-			stage = append(stage, subArgValue.Value)
-
-			renderStages = append(renderStages, stage)
-		}
+func again(args *Args) bool {
+	for _, v := range *args {
+		if len(v) > 0 {return true}
 	}
 
-	fmt.Printf("%+v", renderStages)
-	return renderStages
+
+	return false
 }
 
-func (g *Graph) GetRenderStages(args Args) {
+// topological sort
+func (g *Graph) ProduceOrdering(args Args) [][]string {
+    renderStages := [][]string{}
+    for again(&args) {
+		fmt.Println("LOOP runing")
+        visited := make(map[string]bool)
 
+        renders := len(renderStages)
+        for node, neighbors := range g.Nodes {
+            stage := []string{}
+
+            all, ok := args[node]
+            if ok && !visited[node] {
+
+                if node == "-filter_complex" {
+                    renderStages = append(renderStages, processFilterComplex(&args))
+                    visited[node] = true
+                    continue
+                }
+
+                if len(all) > 0 {
+                    stage = append(stage, node)
+                    subArgValue := all[0]
+                    fmt.Printf("Before removal %+v \n", all)
+                    temp := args[node]
+                    removeAtIndex(&temp, 0)
+                    args[node] = temp
+                    fmt.Printf("After removal %+v \n", all)
+
+                    stage = append(stage, subArgValue.Value)
+                    visited[node] = true
+
+                    for _, currentNeighbor := range neighbors {
+                        fmt.Println("Ran here")
+                        a, ok := args[currentNeighbor]
+                        if ok && !visited[currentNeighbor] {
+                            visited[currentNeighbor] = true
+
+                            if len(a) == 0 {
+                                continue
+                            }
+
+                            stage = append(stage, currentNeighbor)
+                            subArgValue := a[0]
+                            temp := args[currentNeighbor]
+                            removeAtIndex(&temp, 0)
+                            args[currentNeighbor] = temp // Update the original map
+                            stage = append(stage, subArgValue.Value)
+                        }
+                    }
+
+                    fmt.Println("STAGE after " + fmt.Sprintf("%+v", stage))
+                }
+
+                renderStages = append(renderStages, stage)
+            }
+        }
+
+        if renders == len(renderStages) {
+            break
+        }
+    }
+
+    fmt.Printf("%+v\n len %d", renderStages, len(renderStages))
+    return renderStages
 }
+
+// func (g *Graph) GetRenderStages(args Args) {
+
+// }
 
 func (g *Graph) nodeExists(node string) bool {
 	_, ok := g.Nodes[node]

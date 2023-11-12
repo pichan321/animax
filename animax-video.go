@@ -59,7 +59,6 @@ var ASPECT_RATIOS = struct {
 type subArg struct {
 	Key string
 	Value string
-	Used bool
 }
 
 func (args Args) addArg(flag string, subArg subArg) {
@@ -202,7 +201,7 @@ func (video *Video) Resize(width int64, height int64) (modifiedVideo *Video) {
 	video.args.addArg("-filter_complex", 
 		subArg{
 			Key:   "scale",
-			Value: fmt.Sprintf(`%d:%d`, width, height),
+			Value: fmt.Sprintf(`scale=%d:%d`, width, height),
 	})
 	return video
 }
@@ -211,7 +210,7 @@ func (video *Video) ResizeByWidth(width int64) (modifiedVideo *Video) {
 	video.args.addArg("-filter_complex", 
 		subArg{
 			Key: "scale",
-			Value: fmt.Sprintf(`%d:%d`, width, -1),
+			Value: fmt.Sprintf(`scale=%d:%d`, width, -1),
 		})
 		
 	return video
@@ -233,11 +232,18 @@ func (video *Video) Trim(startTime int64, endTime int64) (modifiedVideo *Video){
 		return &Video{}
 	}
 
-	video.args.addArg("-filter_complex", 
-		subArg{
-			Key: "trim",
-			Value: 	fmt.Sprintf(`trim=start=%d:end=%d`, startTime, endTime),
-		})
+	// video.args.addArg("-filter_complex", 
+	// 	subArg{
+	// 		Key: "trim",
+	// 		Value: 	fmt.Sprintf(`trim=start=%d:end=%d`, startTime, endTime),
+	// 	})
+
+	video.args.addArg("-ss", 
+	subArg{
+		Key: "ss",
+		Value: 	fmt.Sprintf(`%d -to %d`, startTime, endTime),
+	})
+	
 	
 	return video
 }
@@ -339,6 +345,15 @@ func (video *Video) MuteAudio() (modifiedVideo *Video) {
 	return video
 }
 
+func (video *Video) Saturate(multiplier float64) (modifiedVideo *Video) {
+	video.args.addArg("-vf", 
+		subArg{
+			Key: "saturation",
+			Value: fmt.Sprintf("eq=saturation=%f", multiplier),
+		})
+	return video
+}
+
 func secondsToHMS(seconds int) string {
 	hours := seconds / 3600
 	minutes := (seconds % 3600) / 60
@@ -430,6 +445,21 @@ func secondsToHMS(seconds int) string {
 // }
 
 
+func fixSpace(slice *[]string) {
+	for i := 0; i < len(*slice); i++ {
+		splits := strings.Fields((*slice)[i])
+		if len(splits) > 1 {
+			*slice = append( (*slice)[:i], append(splits[:], (*slice)[i+1:]...)...)
+ 		}
+	}
+	for i := 0; i < len(*slice); i++ {
+		if len(strings.Fields((*slice)[i])) > 1 {
+			fixSpace(slice)
+			return
+		}
+	}	
+}
+
 /*
 	If there exists a file at the specified outputPath, the file will be overwritten.
 */
@@ -440,7 +470,6 @@ func (video Video) Render(outputPath string, videoEncoding string) (outputVideo 
 	}
 
 	if videoEncoding == "" {videoEncoding = VIDEO_ENCODINGS.Best}
-
 	// query := video.queryBuilder(video.FilePath, outputPath, videoEncoding)
 	// cmd := exec.Command(query[0], query[1:]...)
 	// logger := GetLogger()
@@ -465,37 +494,62 @@ func (video Video) Render(outputPath string, videoEncoding string) (outputVideo 
 	g := GetRenderGraph(VideoGraph)
 	renderStages := g.ProduceOrdering(video.args)
 	
-	if len(renderStages) == 0 {return video}
+	if len(renderStages) == 0 {
+		Logger.Errorf("No effects applied. Aborting render.\n")
+		return video
+	}
 	
 	base := []string{"ffmpeg", "-i",}
 	if len(renderStages) == 1 {
 		cmd := base
 		cmd = append(cmd, video.FilePath)
+		fixSpace(&renderStages[0])
 		cmd = append(cmd, renderStages[0]...)
+		cmd = append(cmd, []string{"-c:v", videoEncoding, "-y"}...)
 		cmd = append(cmd, outputPath)
 		execute := exec.Command(cmd[0], cmd[1:]...)
-		fmt.Println("COMMAND: " + execute.String())
-		_, err = execute.CombinedOutput()
+
+		Logger.Infoln("Command to be executed: " + execute.String())
+		output, err := execute.CombinedOutput()
+		if err != nil {
+			Logger.Errorf("%s", string(output))
+		}
 		outputVideo, err = LoadVideo(outputPath)
+		if err != nil {
+			Logger.Errorf("%s", err)
+		}
 		return outputVideo
 	}
 
 	workingDir := uuid.New().String()
 	os.Mkdir(workingDir, os.ModePerm)
 	temp := uuid.New().String()
-	current := fmt.Sprintf("%s/%s.mp4", workingDir, temp)
+
+	inputPath := video.FilePath
+	nextPath := fmt.Sprintf("%s/%s.mp4", workingDir, temp)
+	fmt.Println("More than 2")
+	fmt.Println("RENDER STAGES %+v | len %d", renderStages, len(renderStages))
 	for i := 0; i < len(renderStages); i++ {
 		cmd := base
-
+		cmd = append(cmd, inputPath)
+		if len(renderStages[i]) == 0 {continue}
+		fixSpace(&renderStages[i])
 		cmd = append(cmd, renderStages[i]...)
-		cmd = append(cmd, current)
+		cmd = append(cmd, nextPath)
+
 		execute := exec.Command(cmd[0], cmd[1:]...)
-		fmt.Println("COMMAND: " + execute.String())
-		_, err = execute.CombinedOutput()
+
+
+		Logger.Infoln("Command to be executed: " + execute.String())
+		output, err := execute.CombinedOutput()
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println(string(output))
 		}
+		inputPath = nextPath
+		nextPath = fmt.Sprintf("%s/%s.mp4", workingDir, uuid.New().String())
 	}
+
+	os.Rename(inputPath, outputPath)
 	defer os.RemoveAll(workingDir)
 	return outputVideo
 }
