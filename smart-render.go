@@ -63,7 +63,6 @@ func removeElement[T comparable](slice *[]T, element *T) []T {
 
 	return *slice
 }
-
 func processFilterComplex(args *Args) []string {
 	tag := ""
 	output := []string{"-filter_complex"}
@@ -159,7 +158,7 @@ func (g *Graph) ProduceOrdering(args Args) [][]string {
                         fmt.Println("Ran here")
                         a, ok := args[currentNeighbor]
                         if ok && !visited[currentNeighbor] {
-                           
+                            visited[currentNeighbor] = true
 
                             if len(a) == 0 {
                                 continue
@@ -169,9 +168,8 @@ func (g *Graph) ProduceOrdering(args Args) [][]string {
                             subArgValue := a[0]
                             temp := args[currentNeighbor]
                             removeAtIndex(&temp, 0)
-                            args[currentNeighbor] = temp
+                            args[currentNeighbor] = temp // Update the original map
                             stage = append(stage, subArgValue.Value)
-							visited[currentNeighbor] = true
                         }
                     }
 
