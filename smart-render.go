@@ -2,6 +2,7 @@ package animax
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -50,15 +51,18 @@ func removeAtIndex[T any](slice *[]T, index int) {
 	*slice = append((*slice)[:index], (*slice)[index+1:]...) 
 }
 
-func removeElement[T comparable](slice *[]T, element *T) {
-	for i := 0; i < len(*slice); i++ {
-		if &(*slice)[i] == element {
-			*slice = append((*slice)[:i], (*slice)[i+1:]... )
-			return
-		}
-	}
-}
+func removeElement[T comparable](slice *[]T, element *T) []T {
+    for i, v := range *slice {
+		fmt.Printf("CURRENT MEMORY ADDRESS: %p | ELEMENT: %p", &v, element)
+        if reflect.DeepEqual(v, *element) {
+			fmt.Println("FOUND YU")
+            *slice = append((*slice)[:i], (*slice)[i+1:]...)
+            return *slice
+        }
+    }
 
+	return *slice
+}
 func processFilterComplex(args *Args) []string {
 	tag := ""
 	output := []string{"-filter_complex"}
@@ -94,7 +98,8 @@ func processFilterComplex(args *Args) []string {
 	for i := 0; i < len(toRemove); i++ {
 		tempVar := (*args)["-filter_complex"]
 		fmt.Printf("Before removal: %+v\n", (*args)["-filter_complex"])
-		removeElement[subArg](&tempVar, toRemove[i] )
+		(*args)["-filter_complex"] = removeElement[subArg](&tempVar, toRemove[i] )
+		fmt.Println("IN FILTER")
 		fmt.Printf("After removal: %+v\n", (*args)["-filter_complex"])
 		time.Sleep(5)
 	} 
