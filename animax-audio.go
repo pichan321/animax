@@ -30,15 +30,14 @@ func pullAudioStats(audioPath string) (duration int64) {
 }
 
 func LoadAudio(audioPath string) (audio Audio, err error) {
-	logger := GetLogger()
 	file, err := os.Stat(audioPath)
 	if err != nil {
-		logger.Error(fmt.Sprintf(`audioPath: %s does not exist`, audioPath))
+		Logger.Error(fmt.Sprintf(`audioPath: %s does not exist`, audioPath))
 		return Audio{}, err
 	}
 
 	if file.IsDir() {
-		logger.Error(fmt.Sprintf(`videoPath: %s is a directory`, audioPath))
+		Logger.Error(fmt.Sprintf(`videoPath: %s is a directory`, audioPath))
 		return Audio{}, errors.New("videoPath: %s is a directory")
 	}
 
@@ -54,9 +53,8 @@ func LoadAudio(audioPath string) (audio Audio, err error) {
 }
 
 func (audio *Audio) Trim(startTime int64, endTime int64) (modifiedAudio *Audio) {
-	logger := GetLogger()
 	if startTime > endTime {
-		logger.Error("start time cannot be bigger than end time")
+		Logger.Error("start time cannot be bigger than end time")
 		return &Audio{}
 	}
 	// audio.renders = append(audio.renders, []string{"-filter_complex", fmt.Sprintf(`[0]trim=start=%d:end=%d[aout]`, startTime, endTime), "-map", "[aout]"})
