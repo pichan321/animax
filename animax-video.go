@@ -354,6 +354,14 @@ func (video *Video) Saturate(multiplier float64) (modifiedVideo *Video) {
 	return video
 }
 
+/**
+*  
+*/
+func (video *Video) Saturate(multiplier float64) (modifiedVideo *Video) {
+	video.args.addArg("-vf", fmt.Sprintf("eq=saturation=%f", multiplier))
+	return video
+}
+
 func secondsToHMS(seconds int) string {
 	hours := seconds / 3600
 	minutes := (seconds % 3600) / 60
@@ -458,7 +466,6 @@ func fixSpace(slice *[]string) {
 			return
 		}
 	}	
-}
 
 /*
 	If there exists a file at the specified outputPath, the file will be overwritten.
@@ -479,6 +486,7 @@ func (video Video) Render(outputPath string, videoEncoding string) (outputVideo 
 	// 	logger.Error(err.Error())
 	// 	return Video{}
 	// }
+
 
 	// video.args = make(Args)
 	// var fileInterface interface{}
@@ -547,7 +555,6 @@ func (video Video) Render(outputPath string, videoEncoding string) (outputVideo 
 		}
 		inputPath = nextPath
 		nextPath = fmt.Sprintf("%s/%s.mp4", workingDir, uuid.New().String())
-	}
 
 	os.Rename(inputPath, outputPath)
 	defer os.RemoveAll(workingDir)
