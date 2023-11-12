@@ -29,7 +29,6 @@ func GetRenderGraph(graphRules []string) Graph {
 	}
 
 	graph.loadRenderRules(&graphRules)
-	// graph.ProduceOrdering()
 	return graph
 }
 
@@ -38,7 +37,6 @@ func (graph *Graph) loadRenderRules(graphRules *[]string) {
 		nodes :=strings.Split(rule, "|")
 		for _, src := range nodes {
 			for _, dest := range nodes {
-				// fmt.Printf("SRC: %s | DEST: %s\n", src, dest)
 				graph.AddEdge(src, dest)
 			}
 		}
@@ -47,15 +45,12 @@ func (graph *Graph) loadRenderRules(graphRules *[]string) {
 
 func removeAtIndex[T any](slice *[]T, index int) {
 	if index > len(*slice) - 1 {return} 
-	// item := (*slice)[index]
 	*slice = append((*slice)[:index], (*slice)[index+1:]...) 
 }
 
 func removeElement[T comparable](slice *[]T, element *T) []T {
     for i, v := range *slice {
-		fmt.Printf("CURRENT MEMORY ADDRESS: %p | ELEMENT: %p", &v, element)
         if reflect.DeepEqual(v, *element) {
-			fmt.Println("FOUND YU")
             *slice = append((*slice)[:i], (*slice)[i+1:]...)
             return *slice
         }
