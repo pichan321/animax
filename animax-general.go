@@ -1,3 +1,3 @@
 package animax
 
-type Args map[string][]string
+type Args map[string][]subArg
