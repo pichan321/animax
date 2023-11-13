@@ -520,7 +520,7 @@ func (video *Video) startRender(renderStages *[][]string, finalOutputPath string
 			cmd = append(cmd, (*renderStages)[i]...)
 
 			if isTrim(&cmd) {
-				fixTrim(&cmd)
+				// fixTrim(&cmd)
 				shouldEncode(&cmd, i, renderStages)
 			}
 			cmd = append(cmd, nextPath)
