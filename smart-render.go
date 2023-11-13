@@ -117,6 +117,22 @@ func again(args *Args) bool {
 	return false
 }
 
+func prioritizeTrim(renderStages *[][]string) [][]string {
+	trims := [][]string{}
+	others := [][]string{}
+	
+	for _, val := range *renderStages {
+		if isTrim(&val) {
+			trims = append(trims, val)
+			continue
+		}	
+
+		others = append(others, val)
+	}
+
+	return append(trims, others...)
+}
+
 // topological sort
 func (g *Graph) ProduceOrdering(args Args) [][]string {
     renderStages := [][]string{}
@@ -150,7 +166,6 @@ func (g *Graph) ProduceOrdering(args Args) [][]string {
                     visited[node] = true
 
                     for _, currentNeighbor := range neighbors {
-                        fmt.Println("Ran here")
                         a, ok := args[currentNeighbor]
                         if ok && !visited[currentNeighbor] {
                             visited[currentNeighbor] = true
@@ -168,7 +183,6 @@ func (g *Graph) ProduceOrdering(args Args) [][]string {
                         }
                     }
 
-                    fmt.Println("STAGE after " + fmt.Sprintf("%+v", stage))
                 }
 
                 renderStages = append(renderStages, stage)
@@ -180,7 +194,8 @@ func (g *Graph) ProduceOrdering(args Args) [][]string {
         }
     }
 
-    fmt.Printf("%+v\n len %d", renderStages, len(renderStages))
+	renderStages = prioritizeTrim(&renderStages)
+
     return renderStages
 }
 

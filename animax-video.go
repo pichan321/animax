@@ -477,7 +477,7 @@ func shouldEncode(cmd *[]string, currentIndex int, renderStages *[][]string) {
 	next := (*renderStages)[currentIndex + 1]
 
 	if isTrim(&next) {
-		fmt.Println("Next is trim")
+		// fmt.Println("Next is trim")
 		*cmd = append(*cmd, []string{"-c:v", "copy"}...)
 		return
 	}
@@ -494,9 +494,9 @@ func fixTrim(cmd *[]string) {
 	copy((*cmd)[3:5], temp)
 	*cmd = (*cmd)[:7]
 
-	fmt.Printf("INPUT: %v | START: %v\n", temp, start)
-	fmt.Println("IS TRIM")
-	fmt.Println(*cmd)
+	// fmt.Printf("INPUT: %v | START: %v\n", temp, start)
+	// fmt.Println("IS TRIM")
+	// fmt.Println(*cmd)
 }
 
 func (video *Video) startRender(renderStages *[][]string, finalOutputPath string) {
@@ -557,10 +557,11 @@ func (video Video) Render(outputPath string, videoEncoding string) (outputVideo 
 		Logger.Errorf("No effects applied. Aborting render.\n")
 		return video
 	}
-
+	fmt.Println()
+	fmt.Printf("ALL STAGES %+v", renderStages)
 	video.startRender(&renderStages, outputPath)
 	outputVideo , err = LoadVideo(outputPath)
-	
+
 	if err != nil {
 		return video
 	}
