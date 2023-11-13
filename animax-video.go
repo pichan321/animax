@@ -457,7 +457,87 @@ func fixSpace(slice *[]string) {
 			fixSpace(slice)
 			return
 		}
-		}	
+	}
+	// *slice = *slice[]
+}
+
+func isTrim(cmd *[]string) bool {
+	for _, v := range *cmd {
+		if strings.Contains(v, "-ss") {return true}
+	}
+	return false
+}
+
+func shouldEncode(cmd *[]string, currentIndex int, renderStages *[][]string) {
+	if currentIndex == len(*renderStages) - 1 {
+		*cmd = append(*cmd, []string{"-c:v", "libx264"}...)
+		return
+	}
+	
+	next := (*renderStages)[currentIndex + 1]
+
+	if isTrim(&next) {
+		// fmt.Println("Next is trim")
+		*cmd = append(*cmd, []string{"-c:v", "copy"}...)
+		return
+	}
+
+	*cmd = append(*cmd, []string{"-c:v", "libx264"}...)
+}
+
+func fixTrim(cmd *[]string) {
+	input := (*cmd)[1:3]
+	temp := make([]string, len(input))
+	copy(temp, input)
+	start := (*cmd)[3:5]
+	copy((*cmd)[1:3], start)
+	copy((*cmd)[3:5], temp)
+	*cmd = (*cmd)[:7]
+
+	// fmt.Printf("INPUT: %v | START: %v\n", temp, start)
+	// fmt.Println("IS TRIM")
+	// fmt.Println(*cmd)
+}
+
+func (video *Video) startRender(renderStages *[][]string, finalOutputPath string) {
+		base := []string{"ffmpeg", "-i",}
+
+		workingDir := uuid.New().String()
+		os.Mkdir(workingDir, os.ModePerm)
+		defer os.RemoveAll(workingDir)
+		temp := uuid.New().String()
+
+		inputPath := video.FilePath
+		nextPath := fmt.Sprintf("%s/%s.mp4", workingDir, temp)
+
+		for i := 0; i < len(*renderStages); i++ {
+			if len((*renderStages)[i]) == 0 {continue}
+
+			cmd := base
+			cmd = append(cmd, inputPath)
+
+			fixSpace(&(*renderStages)[i])
+			cmd = append(cmd, (*renderStages)[i]...)
+
+			if isTrim(&cmd) {
+				fixTrim(&cmd)
+				shouldEncode(&cmd, i, renderStages)
+			}
+			cmd = append(cmd, nextPath)
+	
+			execute := exec.Command(cmd[0], cmd[1:]...)
+	
+			Logger.Infoln("Command to be executed: " + execute.String())
+			output, err := execute.CombinedOutput()
+			if err != nil {
+				fmt.Println(string(output))
+			}
+			inputPath = nextPath
+			nextPath = fmt.Sprintf("%s/%s.mp4", workingDir, uuid.New().String())
+		}
+		
+		os.Rename(inputPath, finalOutputPath)
+		
 }
 /*
 	If there exists a file at the specified outputPath, the file will be overwritten.
@@ -469,27 +549,6 @@ func (video Video) Render(outputPath string, videoEncoding string) (outputVideo 
 	}
 
 	if videoEncoding == "" {videoEncoding = VIDEO_ENCODINGS.Best}
-	// query := video.queryBuilder(video.FilePath, outputPath, videoEncoding)
-	// cmd := exec.Command(query[0], query[1:]...)
-	// logger := GetLogger()
-	// logger.Info("Command to be executed: " + cmd.String())
-	// _, err = cmd.Output()
-	// if err != nil {
-	// 	logger.Error(err.Error())
-	// 	return Video{}
-	// }
-
-
-	// video.args = make(Args)
-	// var fileInterface interface{}
-	// fileInterface, err = LoadVideo(outputPath)
-	// outputVideo = fileInterface.(Video)
-	// if err != nil {
-	// 	logger.Error(fmt.Sprintf("outputVideo: %s cannot be loaded.", outputPath))
-	// 	return Video{}
-	// }
-
-
 
 	g := GetRenderGraph(VideoGraph)
 	renderStages := g.ProduceOrdering(video.args)
@@ -498,58 +557,72 @@ func (video Video) Render(outputPath string, videoEncoding string) (outputVideo 
 		Logger.Errorf("No effects applied. Aborting render.\n")
 		return video
 	}
-	
-	base := []string{"ffmpeg", "-i",}
-	if len(renderStages) == 1 {
-		cmd := base
-		cmd = append(cmd, video.FilePath)
-		fixSpace(&renderStages[0])
-		cmd = append(cmd, renderStages[0]...)
-		cmd = append(cmd, []string{"-c:v", videoEncoding, "-y"}...)
-		cmd = append(cmd, outputPath)
-		execute := exec.Command(cmd[0], cmd[1:]...)
+	fmt.Println()
+	fmt.Printf("ALL STAGES %+v", renderStages)
+	video.startRender(&renderStages, outputPath)
+	outputVideo , err = LoadVideo(outputPath)
 
-		Logger.Infoln("Command to be executed: " + execute.String())
-		output, err := execute.CombinedOutput()
-		if err != nil {
-			Logger.Errorf("%s", string(output))
-		}
-		outputVideo, err = LoadVideo(outputPath)
-		if err != nil {
-			Logger.Errorf("%s", err)
-		}
-		return outputVideo
+	if err != nil {
+		return video
 	}
 
-	workingDir := uuid.New().String()
-	os.Mkdir(workingDir, os.ModePerm)
-	temp := uuid.New().String()
 
-	inputPath := video.FilePath
-	nextPath := fmt.Sprintf("%s/%s.mp4", workingDir, temp)
-	fmt.Println("More than 2")
-	fmt.Println("RENDER STAGES %+v | len %d", renderStages, len(renderStages))
-	for i := 0; i < len(renderStages); i++ {
-		cmd := base
-		cmd = append(cmd, inputPath)
-		if len(renderStages[i]) == 0 {continue}
-		fixSpace(&renderStages[i])
-		cmd = append(cmd, renderStages[i]...)
-		cmd = append(cmd, nextPath)
+	// base := []string{"ffmpeg", "-i",}
+	// if len(renderStages) == 1 {
+	// 	cmd := base
+	// 	cmd = append(cmd, video.FilePath)
 
-		execute := exec.Command(cmd[0], cmd[1:]...)
+	// 	fixSpace(&renderStages[0])
+	// 	cmd = append(cmd, renderStages[0]...)
+	// 	cmd = append(cmd, []string{"-c:v", videoEncoding, "-y"}...)
+	// 	if isTrim(&cmd) {
+	// 		fixTrim(&cmd)
+	// 		shouldEncode(&cmd, 0, &renderStages)
+	// 	}
+	// 	cmd = append(cmd, outputPath)
+	// 	execute := exec.Command(cmd[0], cmd[1:]...)
+
+	// 	Logger.Infoln("Command to be executed: " + execute.String())
+	// 	output, err := execute.CombinedOutput()
+	// 	if err != nil {
+	// 		Logger.Errorf("%s", string(output))
+	// 	}
+	// 	outputVideo, err = LoadVideo(outputPath)
+	// 	if err != nil {
+	// 		Logger.Errorf("%s", err)
+	// 	}
+	// 	return outputVideo
+	// }
+
+	// workingDir := uuid.New().String()
+	// os.Mkdir(workingDir, os.ModePerm)
+	// temp := uuid.New().String()
+
+	// inputPath := video.FilePath
+	// nextPath := fmt.Sprintf("%s/%s.mp4", workingDir, temp)
+	// fmt.Println("More than 2")
+	// fmt.Println("RENDER STAGES %+v | len %d", renderStages, len(renderStages))
+	// for i := 0; i < len(renderStages); i++ {
+	// 	cmd := base
+	// 	cmd = append(cmd, inputPath)
+	// 	if len(renderStages[i]) == 0 {continue}
+	// 	fixSpace(&renderStages[i])
+	// 	cmd = append(cmd, renderStages[i]...)
+	// 	cmd = append(cmd, nextPath)
+
+	// 	execute := exec.Command(cmd[0], cmd[1:]...)
 
 
-		Logger.Infoln("Command to be executed: " + execute.String())
-		output, err := execute.CombinedOutput()
-		if err != nil {
-			fmt.Println(string(output))
-		}
-		inputPath = nextPath
-		nextPath = fmt.Sprintf("%s/%s.mp4", workingDir, uuid.New().String())
-	}
+	// 	Logger.Infoln("Command to be executed: " + execute.String())
+	// 	output, err := execute.CombinedOutput()
+	// 	if err != nil {
+	// 		fmt.Println(string(output))
+	// 	}
+	// 	inputPath = nextPath
+	// 	nextPath = fmt.Sprintf("%s/%s.mp4", workingDir, uuid.New().String())
+	// }
 	
-	os.Rename(inputPath, outputPath)
-	defer os.RemoveAll(workingDir)
+	// os.Rename(inputPath, outputPath)
+	// defer os.RemoveAll(workingDir)
 	return outputVideo
 }

@@ -122,10 +122,10 @@ func (audio Audio) Render(outputPath string) (modified Audio) {
 		temp = append(temp, render...)
 	
 		nextOutput = fmt.Sprintf(`%s-temp-%d.mp3`, tempOutputName, idx)
-		fmt.Println("Next output " + nextOutput)
+		// fmt.Println("Next output " + nextOutput)
 		temp = append(temp, nextOutput)
 		cmd := exec.Command(temp[0], temp[1:]...)
-		fmt.Println(cmd.String())
+		// fmt.Println(cmd.String())
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			Logger.Error(string(output))
@@ -133,7 +133,7 @@ func (audio Audio) Render(outputPath string) (modified Audio) {
 		tempFiles = append(tempFiles, nextOutput)
 	}
 
-	fmt.Println(nextOutput)
+	// fmt.Println(nextOutput)
 	os.Rename(nextOutput, outputPath)
 	defer removeFiles(tempFiles)
 	newAudio, err := LoadAudio(outputPath)
