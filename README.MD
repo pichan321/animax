@@ -34,9 +34,6 @@ Animax heavily relies on FFMPEG. To run Animax you would first have to install F
 
  
 Emails:
-
-- pchan@ithaca.edu **(Primary)**
-
 - pichsereyvattanchan@gmail.com
 
 **Pichsereyvattana Chan**
