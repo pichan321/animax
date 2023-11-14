@@ -182,7 +182,7 @@ func LoadVideo(videoPath string) (video Video, err error) {
 	width, height, duration, aspectRatio := pullVideoStats(videoPath)
 	fileFormat :=  filepath.Ext(videoPath)
 	if !contains(fileFormat) {
-		Logger.Error(fmt.Sprintf(`videoPath: %s | Video format is not supported`, videoPath))
+		Logger.Error(fmt.Sprintf(`videoPath: %s | Video format is not supported\n`, videoPath))
 		return Video{}, err
 	}
 	return Video{
@@ -228,20 +228,15 @@ func (video *Video) ResizeByHeight(height int64) (modifiedVideo *Video) {
 
 func (video *Video) Trim(startTime int64, endTime int64) (modifiedVideo *Video){
 	if startTime > endTime {
-		Logger.Error("Start time cannot be bigger than end time")
+		Logger.Errorln("Start time cannot be bigger than end time")
 		return &Video{}
 	}
 
-	// video.args.addArg("-filter_complex", 
-	// 	subArg{
-	// 		Key: "trim",
-	// 		Value: 	fmt.Sprintf(`trim=start=%d:end=%d`, startTime, endTime),
-	// 	})
-
+	newStart := video.SeekFrame(startTime)
 	video.args.addArg("-ss", 
 	subArg{
 		Key: "ss",
-		Value: 	fmt.Sprintf(`%d -to %d`, startTime, endTime),
+		Value: 	fmt.Sprintf(`%f -to %f`, newStart, float64(endTime)),
 	})
 	
 	
@@ -362,89 +357,6 @@ func secondsToHMS(seconds int) string {
 	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)
 }
 
-// func shouldProcessFilterComplex(filterComplex []string, inputPath string) ([]string, bool) {
-// 	if len(filterComplex) == 1 && strings.HasPrefix(filterComplex[0], "trim=") {
-// 		startTime := strings.Split(strings.Split(filterComplex[0], "start=")[1], ":end=")[0]
-// 		endTime := strings.Split(filterComplex[0], ":end=")[1]
-// 		return []string{"-i", inputPath, "-ss", startTime, "-to", endTime, "-c:v", "libx264"}, false
-// 	}
-// 	return []string{}, true
-// }
-
-// func (video Video) queryBuilder(inputPath string, outputPath string, videoEncoding string) []string {
-// 	query := []string{"ffmpeg", "-i", video.FilePath, }
-
-// 	// if reflect.TypeOf(v).Name() == "string" {
-// 	// 	// query = append(query, v)
-// 	// }
-
-// 	if len(video.args["-aspect"]) > 0 {
-// 		query = append(query, []string{"-aspect", video.args["-aspect"][0]}...)
-// 	}
-
-// 	if len(video.args["-filter:a"]) > 0 {
-// 		query = append(query, []string{"-filter:a", video.args["-filter:a"][0]}...)
-// 	}
-	
-// 	tag := ""
-// 	output := []string{}
-// 	newTrimCmd, shouldProcess := shouldProcessFilterComplex(video.args["-filter_complex"], inputPath)
-// 	if len(video.args["-filter_complex"]) > 0 && shouldProcess {
-// 		query = append(query, "-filter_complex")
-// 		filter := ""
-// 		//create a helper function that returns output
-// 		// current := ""
-// 		for index, val := range video.args["-filter_complex"] {
-// 			if index == 0 && strings.HasPrefix("trim=", val)  {
-// 				tag = uuid.New().String()[0:4]
-// 				filter += fmt.Sprintf(`[0]%s[%s];`, val, tag)
-// 				continue
-// 			}
-// 			if index == 0  {
-// 				tag = uuid.New().String()[0:4]
-// 				filter += fmt.Sprintf(`[0]%s[%s];`, val, tag)
-// 				continue
-// 			}
-// 			filter += fmt.Sprintf(`[%s]`, tag)
-// 			tag = uuid.New().String()[0:4]
-// 			filter += fmt.Sprintf(`%s[%s];`, val, tag)
-// 		}
-// 		query = append(query, filter[0:len(filter) - 1])
-
-// 		if len(tag) == 0 {
-// 			output = []string{"-map", "[" + tag +"]", "-c", "copy", outputPath}
-// 		} else {
-// 			output = []string{"-map", "[" + tag + "]", "-map", "0:a", "-c:v", videoEncoding, outputPath}
-// 		}
-// 	}
-
-// 	if !shouldProcess && len(video.args["-filter:a"]) == 0 {
-// 		output = append(newTrimCmd, outputPath)
-// 		query = append([]string{"ffmpeg", }, output...)
-// 		return query
-// 	}
-
-// 	if !shouldProcess && len(video.args["-filter:a"]) == 1 {
-// 		newTrimCmd = append(newTrimCmd[0:len(newTrimCmd)-2], []string{"-c:v", VIDEO_ENCODINGS.Best}...)
-// 		output = append(newTrimCmd, outputPath)
-// 		query = append(query, output...)
-// 		return query
-// 	}
-
-// 	if len(output) == 0 {
-// 		output = []string{"-c:v", VIDEO_ENCODINGS.Best, outputPath}
-
-// 	}
-// 	logger := GetLogger()
-// 	logger.Info("Final output " + strings.Join(output, " "))
-
-// 	query = append(query, output...)
-// 	// query = append(query, []string{"-c:v", "copy", "-c:a", "copy", outputPath}...)
-// 	// query = append(query, []string{outputPath}...)
-// 	return query
-// }
-
-
 func fixSpace(slice *[]string) {
 	for i := 0; i < len(*slice); i++ {
 		splits := strings.Fields((*slice)[i])
@@ -458,7 +370,6 @@ func fixSpace(slice *[]string) {
 			return
 		}
 	}
-	// *slice = *slice[]
 }
 
 func isTrim(cmd *[]string) bool {
@@ -478,11 +389,13 @@ func shouldEncode(cmd *[]string, currentIndex int, renderStages *[][]string) {
 
 	if isTrim(&next) {
 		// fmt.Println("Next is trim")
-		*cmd = append(*cmd, []string{"-c:v", "copy"}...)
+		// fixTrim(cmd)
+		*cmd = append(*cmd, []string{"-c", "copy"}...)
 		return
 	}
 
-	*cmd = append(*cmd, []string{"-c:v", "libx264"}...)
+	*cmd = append(*cmd, []string{"-c", "copy"}...)
+	// *cmd = append(*cmd, []string{"-c:v", "libx264"}...)
 }
 
 func fixTrim(cmd *[]string) {
@@ -493,10 +406,6 @@ func fixTrim(cmd *[]string) {
 	copy((*cmd)[1:3], start)
 	copy((*cmd)[3:5], temp)
 	*cmd = (*cmd)[:7]
-
-	// fmt.Printf("INPUT: %v | START: %v\n", temp, start)
-	// fmt.Println("IS TRIM")
-	// fmt.Println(*cmd)
 }
 
 func (video *Video) startRender(renderStages *[][]string, finalOutputPath string) {
@@ -522,6 +431,9 @@ func (video *Video) startRender(renderStages *[][]string, finalOutputPath string
 			if isTrim(&cmd) {
 				// fixTrim(&cmd)
 				shouldEncode(&cmd, i, renderStages)
+			} else {
+				cmd = append(cmd, 
+				[]string{"-c:v", "libx264"}...)
 			}
 			cmd = append(cmd, nextPath)
 	
@@ -557,72 +469,13 @@ func (video Video) Render(outputPath string, videoEncoding string) (outputVideo 
 		Logger.Errorf("No effects applied. Aborting render.\n")
 		return video
 	}
-	fmt.Println()
-	fmt.Printf("ALL STAGES %+v", renderStages)
+
+	fmt.Printf("\nALL STAGES %+v\n", renderStages)
 	video.startRender(&renderStages, outputPath)
 	outputVideo , err = LoadVideo(outputPath)
 
 	if err != nil {
 		return video
 	}
-
-
-	// base := []string{"ffmpeg", "-i",}
-	// if len(renderStages) == 1 {
-	// 	cmd := base
-	// 	cmd = append(cmd, video.FilePath)
-
-	// 	fixSpace(&renderStages[0])
-	// 	cmd = append(cmd, renderStages[0]...)
-	// 	cmd = append(cmd, []string{"-c:v", videoEncoding, "-y"}...)
-	// 	if isTrim(&cmd) {
-	// 		fixTrim(&cmd)
-	// 		shouldEncode(&cmd, 0, &renderStages)
-	// 	}
-	// 	cmd = append(cmd, outputPath)
-	// 	execute := exec.Command(cmd[0], cmd[1:]...)
-
-	// 	Logger.Infoln("Command to be executed: " + execute.String())
-	// 	output, err := execute.CombinedOutput()
-	// 	if err != nil {
-	// 		Logger.Errorf("%s", string(output))
-	// 	}
-	// 	outputVideo, err = LoadVideo(outputPath)
-	// 	if err != nil {
-	// 		Logger.Errorf("%s", err)
-	// 	}
-	// 	return outputVideo
-	// }
-
-	// workingDir := uuid.New().String()
-	// os.Mkdir(workingDir, os.ModePerm)
-	// temp := uuid.New().String()
-
-	// inputPath := video.FilePath
-	// nextPath := fmt.Sprintf("%s/%s.mp4", workingDir, temp)
-	// fmt.Println("More than 2")
-	// fmt.Println("RENDER STAGES %+v | len %d", renderStages, len(renderStages))
-	// for i := 0; i < len(renderStages); i++ {
-	// 	cmd := base
-	// 	cmd = append(cmd, inputPath)
-	// 	if len(renderStages[i]) == 0 {continue}
-	// 	fixSpace(&renderStages[i])
-	// 	cmd = append(cmd, renderStages[i]...)
-	// 	cmd = append(cmd, nextPath)
-
-	// 	execute := exec.Command(cmd[0], cmd[1:]...)
-
-
-	// 	Logger.Infoln("Command to be executed: " + execute.String())
-	// 	output, err := execute.CombinedOutput()
-	// 	if err != nil {
-	// 		fmt.Println(string(output))
-	// 	}
-	// 	inputPath = nextPath
-	// 	nextPath = fmt.Sprintf("%s/%s.mp4", workingDir, uuid.New().String())
-	// }
-	
-	// os.Rename(inputPath, outputPath)
-	// defer os.RemoveAll(workingDir)
 	return outputVideo
 }
