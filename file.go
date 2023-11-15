@@ -2,7 +2,9 @@ package animax
 
 type File interface {
 	GetType() string
-	Render() File
+	GetFilename() string
+	GetFilePath() string
+	GetExtension() string
 }
 
 const (

@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"github.com/google/uuid"
 )
 
 type Video struct {
@@ -97,6 +95,18 @@ func searchPts(fps float64, frames int, start float64) float64 {
 
 func (v Video) GetType() string {
 	return video
+}
+
+func (v Video) GetFilename() string {
+	return v.FileName
+}
+
+func (v Video) GetFilePath() string {
+	return v.FilePath
+}
+
+func (v Video) GetExtension() string {
+	return filepath.Ext(v.FilePath)
 }
 
 func (video Video) getFramesAndFps() (float64, int){
@@ -352,142 +362,25 @@ func (video *Video) Saturate(multiplier float64) (modifiedVideo *Video) {
 	return video
 }
 
-func secondsToHMS(seconds int) string {
-	hours := seconds / 3600
-	minutes := (seconds % 3600) / 60
-	seconds = seconds % 60
-
-	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)
-}
-
-func fixSpace(slice *[]string) {
-	for i := 0; i < len(*slice); i++ {
-		splits := strings.Fields((*slice)[i])
-		if len(splits) > 1 {
-			*slice = append( (*slice)[:i], append(splits[:], (*slice)[i+1:]...)...)
- 		}
-	}
-	for i := 0; i < len(*slice); i++ {
-		if len(strings.Fields((*slice)[i])) > 1 {
-			fixSpace(slice)
-			return
-		}
-	}
-}
-
-func isTrim(cmd *[]string) bool {
-	for _, v := range *cmd {
-		if strings.Contains(v, "-ss") {return true}
-	}
-	return false
-}
-
-func shouldEncode(cmd *[]string, currentIndex int, renderStages *[][]string) {
-	if currentIndex == len(*renderStages) - 1 {
-		*cmd = append(*cmd, []string{"-c:v", "libx264", "-y"}...)
-		return
-	}
-	
-	next := (*renderStages)[currentIndex + 1]
-
-	if isTrim(&next) {
-		// fmt.Println("Next is trim")
-		fixTrim(cmd)
-		*cmd = append(*cmd, []string{"-c", "copy", "-y"}...)
-		fmt.Printf("After %+v\n", cmd)
-		return
-	}
-
-	*cmd = append(*cmd, []string{"-c", "copy", "-y"}...)
-	// *cmd = append(*cmd, []string{"-c:v", "libx264"}...)
-}
-
-func fixTrim(cmd *[]string) {
-	input := (*cmd)[1:3]
-	temp := make([]string, len(input))
-	copy(temp, input)
-	start := (*cmd)[3:5]
-	copy((*cmd)[1:3], start)
-	copy((*cmd)[3:5], temp)
-	*cmd = (*cmd)[:7]
-
-	startTime, err := strconv.ParseFloat((*cmd)[2], 64)
-	if err != nil {
-		return
-	}
-	endTime, err := strconv.ParseFloat((*cmd)[6], 64)
-	if err != nil {
-		return
-	}
-
-	(*cmd)[6] = fmt.Sprintf("%.5f",  endTime - startTime)
-}
-
-func startRender(renderStages *[][]string, filePath string, finalOutputPath string) {
-		base := []string{"ffmpeg", "-i",}
-
-		workingDir := uuid.New().String()
-		os.Mkdir(workingDir, os.ModePerm)
-		defer os.RemoveAll(workingDir)
-		temp := uuid.New().String()
-
-		inputPath := filePath
-		nextPath := fmt.Sprintf("%s/%s.mp4", workingDir, temp)
-
-		for i := 0; i < len(*renderStages); i++ {
-			if len((*renderStages)[i]) == 0 {continue}
-
-			cmd := base
-			cmd = append(cmd, inputPath)
-
-			fixSpace(&(*renderStages)[i])
-			cmd = append(cmd, (*renderStages)[i]...)
-
-			if isTrim(&cmd) {
-				// fixTrim(&cmd)
-				shouldEncode(&cmd, i, renderStages)
-			} else {
-				cmd = append(cmd, 
-				[]string{"-c:v", "libx264", "-y"}...)
-			}
-			cmd = append(cmd, nextPath)
-	
-			execute := exec.Command(cmd[0], cmd[1:]...)
-	
-			Logger.Infoln("Command to be executed: " + execute.String())
-			output, err := execute.CombinedOutput()
-			if err != nil {
-				fmt.Println(string(output))
-			}
-			inputPath = nextPath
-			nextPath = fmt.Sprintf("%s/%s.mp4", workingDir, uuid.New().String())
-		}
-		
-		os.Rename(inputPath, finalOutputPath)
-		
-}
 /*
 	If there exists a file at the specified outputPath, the file will be overwritten.
 */
 func (video Video) Render(outputPath string, videoEncoding string) (outputVideo Video) {
-	_, err := os.Stat(outputPath)
-	if err == nil {
-		os.Remove(outputPath)
-	}
+	removeIfExists(outputPath)
 
 	if videoEncoding == "" {videoEncoding = VIDEO_ENCODINGS.Best}
 
 	g := GetRenderGraph(VideoGraph)
-	renderStages := g.ProduceOrdering(video.args)
+	renderStages := g.ProduceOrdering(video.args, &video)
 	
 	if len(renderStages) == 0 {
 		Logger.Errorf("No effects applied. Aborting render.\n")
 		return video
 	}
 
-	fmt.Printf("\nALL STAGES %+v\n", renderStages)
-	startRender(&renderStages, video.FilePath, outputPath)
-	outputVideo , err = LoadVideo(outputPath)
+	// fmt.Printf("\nALL STAGES %+v\n\n", renderStages)
+	startRender(&renderStages, video, outputPath)
+	outputVideo , err := LoadVideo(outputPath)
 
 	if err != nil {
 		return video
