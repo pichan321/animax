@@ -61,8 +61,8 @@ type subArg struct {
 	Value string
 }
 
-func (args Args) addArg(flag string, subArg subArg) {
-    args[flag] = append(args[flag], subArg)
+func (args Args) addArg(flag string, subAr subArg) {
+    args[flag] = append(args[flag], subAr)
 }
 
 func contains(format string) bool {
@@ -95,6 +95,9 @@ func searchPts(fps float64, frames int, start float64) float64 {
 	return -1
 }
 
+func (v Video) GetType() string {
+	return video
+}
 
 func (video Video) getFramesAndFps() (float64, int){
 	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "stream=nb_frames,avg_frame_rate", "-of", "default=noprint_wrappers=1", video.FilePath)
@@ -381,7 +384,7 @@ func isTrim(cmd *[]string) bool {
 
 func shouldEncode(cmd *[]string, currentIndex int, renderStages *[][]string) {
 	if currentIndex == len(*renderStages) - 1 {
-		*cmd = append(*cmd, []string{"-c:v", "libx264"}...)
+		*cmd = append(*cmd, []string{"-c:v", "libx264", "-y"}...)
 		return
 	}
 	
@@ -389,12 +392,13 @@ func shouldEncode(cmd *[]string, currentIndex int, renderStages *[][]string) {
 
 	if isTrim(&next) {
 		// fmt.Println("Next is trim")
-		// fixTrim(cmd)
-		*cmd = append(*cmd, []string{"-c", "copy"}...)
+		fixTrim(cmd)
+		*cmd = append(*cmd, []string{"-c", "copy", "-y"}...)
+		fmt.Printf("After %+v\n", cmd)
 		return
 	}
 
-	*cmd = append(*cmd, []string{"-c", "copy"}...)
+	*cmd = append(*cmd, []string{"-c", "copy", "-y"}...)
 	// *cmd = append(*cmd, []string{"-c:v", "libx264"}...)
 }
 
@@ -406,9 +410,20 @@ func fixTrim(cmd *[]string) {
 	copy((*cmd)[1:3], start)
 	copy((*cmd)[3:5], temp)
 	*cmd = (*cmd)[:7]
+
+	startTime, err := strconv.ParseFloat((*cmd)[2], 64)
+	if err != nil {
+		return
+	}
+	endTime, err := strconv.ParseFloat((*cmd)[6], 64)
+	if err != nil {
+		return
+	}
+
+	(*cmd)[6] = fmt.Sprintf("%.5f",  endTime - startTime)
 }
 
-func (video *Video) startRender(renderStages *[][]string, finalOutputPath string) {
+func startRender(renderStages *[][]string, filePath string, finalOutputPath string) {
 		base := []string{"ffmpeg", "-i",}
 
 		workingDir := uuid.New().String()
@@ -416,7 +431,7 @@ func (video *Video) startRender(renderStages *[][]string, finalOutputPath string
 		defer os.RemoveAll(workingDir)
 		temp := uuid.New().String()
 
-		inputPath := video.FilePath
+		inputPath := filePath
 		nextPath := fmt.Sprintf("%s/%s.mp4", workingDir, temp)
 
 		for i := 0; i < len(*renderStages); i++ {
@@ -433,7 +448,7 @@ func (video *Video) startRender(renderStages *[][]string, finalOutputPath string
 				shouldEncode(&cmd, i, renderStages)
 			} else {
 				cmd = append(cmd, 
-				[]string{"-c:v", "libx264"}...)
+				[]string{"-c:v", "libx264", "-y"}...)
 			}
 			cmd = append(cmd, nextPath)
 	
@@ -471,7 +486,7 @@ func (video Video) Render(outputPath string, videoEncoding string) (outputVideo 
 	}
 
 	fmt.Printf("\nALL STAGES %+v\n", renderStages)
-	video.startRender(&renderStages, outputPath)
+	startRender(&renderStages, video.FilePath, outputPath)
 	outputVideo , err = LoadVideo(outputPath)
 
 	if err != nil {

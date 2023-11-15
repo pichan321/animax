@@ -22,6 +22,11 @@ var VideoGraph []string = []string{
 	"-vf|-va",
 }
 
+var AudioGraph []string = []string{
+	"-vf|-va",
+	"-filter:a|-filter:v",
+}
+
 func GetRenderGraph(graphRules []string) Graph {
 	graph := Graph{
 		Nodes: make(map[string][]string),

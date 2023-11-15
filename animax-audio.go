@@ -15,6 +15,7 @@ type Audio struct {
 	renders [ ][ ]string
 	Duration int64
 	Format   string
+	args Args
 }
 
 const VOLUME_MULTIPLIER_CAP = 100.0
@@ -27,6 +28,10 @@ func pullAudioStats(audioPath string) (duration int64) {
 		fmt.Println(line)
 	}
 	return -1
+}
+
+func (a Audio) GetType() string {
+	return audio
 }
 
 func LoadAudio(audioPath string) (audio Audio, err error) {
@@ -49,6 +54,7 @@ func LoadAudio(audioPath string) (audio Audio, err error) {
 		Format:      filepath.Ext(audioPath),
 		Duration:    int64(duration),
 		renders:        [ ][ ]string{},
+		args: make(Args),
 	}, nil
 }
 
@@ -109,36 +115,28 @@ func removeFiles(files []string) {
 	}
 }
  
-func (audio Audio) Render(outputPath string) (modified Audio) {
-	outputFilename := filepath.Base(outputPath)
-	tempOutputName := outputFilename[:len(outputFilename)-len(filepath.Ext(outputFilename))]
-	base := []string{"ffmpeg", "-i"}
-	nextOutput := ""
-	tempFiles := []string{}
-	for idx, render := range audio.renders {
-		temp := base
-		if idx == 0 {temp = append(temp, audio.FilePath)}
-		if idx != 0 {temp = append(temp, nextOutput)}
-		temp = append(temp, render...)
-	
-		nextOutput = fmt.Sprintf(`%s-temp-%d.mp3`, tempOutputName, idx)
-		// fmt.Println("Next output " + nextOutput)
-		temp = append(temp, nextOutput)
-		cmd := exec.Command(temp[0], temp[1:]...)
-		// fmt.Println(cmd.String())
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			Logger.Error(string(output))
-		}
-		tempFiles = append(tempFiles, nextOutput)
+func (audio Audio) Render(outputPath string) (outputAudio Audio) {
+	_, err := os.Stat(outputPath)
+	if err == nil {
+		os.Remove(outputPath)
 	}
 
-	// fmt.Println(nextOutput)
-	os.Rename(nextOutput, outputPath)
-	defer removeFiles(tempFiles)
-	newAudio, err := LoadAudio(outputPath)
-	if err != nil {
-		return Audio{}
+	// if videoEncoding == "" {videoEncoding = VIDEO_ENCODINGS.Best}
+
+	g := GetRenderGraph(VideoGraph)
+	renderStages := g.ProduceOrdering(audio.args)
+	
+	if len(renderStages) == 0 {
+		Logger.Errorf("No effects applied. Aborting render.\n")
+		return audio
 	}
-	return newAudio
+
+	fmt.Printf("\nALL STAGES %+v\n", renderStages)
+	startRender(&renderStages, audio.FilePath, outputPath)
+	outputAudio , err = LoadAudio(outputPath)
+
+	if err != nil {
+		return audio
+	}
+	return outputAudio
 }
