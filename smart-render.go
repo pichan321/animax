@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -23,6 +22,9 @@ var VideoGraph []string = []string{
 }
 
 var AudioGraph []string = []string{
+	"-filter_complex",
+	"-ss",
+	"-af",
 	"-vf|-va",
 	"-filter:a|-filter:v",
 }
@@ -49,7 +51,7 @@ func (graph *Graph) loadRenderRules(graphRules *[]string) {
 }
 
 func removeAtIndex[T any](slice *[]T, index int) {
-	if index > len(*slice) - 1 {return} 
+	if index > len(*slice) - 1 {return}
 	*slice = append((*slice)[:index], (*slice)[index+1:]...) 
 }
 
@@ -63,7 +65,7 @@ func removeElement[T comparable](slice *[]T, element *T) []T {
 
 	return *slice
 }
-func processFilterComplex(args *Args) []string {
+func processFilterComplex(args *Args, file *File) []string {
 	tag := ""
 	output := []string{"-filter_complex"}
 	filter := ""
@@ -97,19 +99,26 @@ func processFilterComplex(args *Args) []string {
 
 	for i := 0; i < len(toRemove); i++ {
 		tempVar := (*args)["-filter_complex"]
-		fmt.Printf("Before removal: %+v\n", (*args)["-filter_complex"])
+		// fmt.Printf("Before removal: %+v\n", (*args)["-filter_complex"])
 		(*args)["-filter_complex"] = removeElement[subArg](&tempVar, toRemove[i] )
-		fmt.Println("IN FILTER")
-		fmt.Printf("After removal: %+v\n", (*args)["-filter_complex"])
-		time.Sleep(5)
+		// fmt.Println("IN FILTER")
+		// fmt.Printf("After removal: %+v\n", (*args)["-filter_complex"])
+		// time.Sleep(5)
 	} 
 	// fmt.Printf("After removal %+v", (*args)["-filter_complex"])
-	// fmt.Println("Filter" + filter)
+	fmt.Println("Filter" + filter)
 	output = append(output, filter[0:len(filter) - 1])//filter[0:len(filter) - 1]
 																										//videoEncoding
-	output = append(output, []string{"-map", "[" + tag + "]", "-map", "0:a",}...)
-	// (*args)["-filter_complex"] = []subArg{}
+	switch (*file).GetType() {
+		case video:
+			output = append(output, []string{"-map", "[" + tag + "]", "-map", "0:a",}...)
+			return output
+		case audio:
+			output = append(output, []string{"-map", "[" + tag + "]"}...)
+			return output
+	}
 
+	// (*args)["-filter_complex"] = []subArg{}
 	return output
 }
 
@@ -139,7 +148,7 @@ func prioritizeTrim(renderStages *[][]string) [][]string {
 }
 
 // topological sort
-func (g *Graph) ProduceOrdering(args Args) [][]string {
+func (g *Graph) ProduceOrdering(args Args, file File) [][]string {
     renderStages := [][]string{}
     for again(&args) {
 		fmt.Println("LOOP runing")
@@ -153,7 +162,7 @@ func (g *Graph) ProduceOrdering(args Args) [][]string {
             if ok && !visited[node] {
 
                 if node == "-filter_complex" {
-                    renderStages = append(renderStages, processFilterComplex(&args))
+                    renderStages = append(renderStages, processFilterComplex(&args, &file))
                     visited[node] = true
                     continue
                 }
@@ -164,8 +173,9 @@ func (g *Graph) ProduceOrdering(args Args) [][]string {
                     fmt.Printf("Before removal %+v \n", all)
                     temp := args[node]
                     removeAtIndex(&temp, 0)
+					fmt.Printf("Temp after %+v\n", temp)
                     args[node] = temp
-                    fmt.Printf("After removal %+v \n", all)
+                    fmt.Printf("After removal %+v \n", args[node] )
 
                     stage = append(stage, subArgValue.Value)
                     visited[node] = true
