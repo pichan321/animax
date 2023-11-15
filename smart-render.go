@@ -151,7 +151,7 @@ func prioritizeTrim(renderStages *[][]string) [][]string {
 func (g *Graph) ProduceOrdering(args Args, file File) [][]string {
     renderStages := [][]string{}
     for again(&args) {
-		fmt.Println("LOOP runing")
+		// fmt.Println("LOOP runing")
         visited := make(map[string]bool)
 
         renders := len(renderStages)

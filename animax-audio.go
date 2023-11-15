@@ -165,7 +165,7 @@ func (audio Audio) Render(outputPath string) (outputAudio Audio) {
 		return audio
 	}
 
-	fmt.Printf("\nALL STAGES %+v\n", renderStages)
+	// fmt.Printf("\nALL STAGES %+v\n", renderStages)
 	startRender(&renderStages, audio, outputPath)
 	outputAudio , err := LoadAudio(outputPath)
 

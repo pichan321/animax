@@ -378,7 +378,7 @@ func (video Video) Render(outputPath string, videoEncoding string) (outputVideo 
 		return video
 	}
 
-	fmt.Printf("\nALL STAGES %+v\n\n", renderStages)
+	// fmt.Printf("\nALL STAGES %+v\n\n", renderStages)
 	startRender(&renderStages, video, outputPath)
 	outputVideo , err := LoadVideo(outputPath)
 
