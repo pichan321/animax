@@ -38,11 +38,11 @@ Render method will actually perform render on the video based on all the effects
 
 The below two lines are equivalent.
 ```go
- 	video.Render("output.mp4", animax.VIDEO_ENCODINGS.Best)
+	video.Render("output.mp4", animax.VIDEO_ENCODINGS.Best)
 ```
 
 ```go
-	 video.Render("output.mp4", "")
+	video.Render("output.mp4", "")
 ```
 
 ### Audio
@@ -60,13 +60,13 @@ The below two lines are equivalent.
 The same as video, you can apply and chain as many effects as you want, but trim effects will always be prioritized and executed first for efficiency.
   
 ```go
-audio.Trim(100, 200).Nightcore()
+	audio.Trim(100, 200).Nightcore()
 ```
 
 #### Render
 
 ```go
-audio.Render("output.mp4")
+	audio.Render("output.mp4")
 ```
 
 ### Contact:
