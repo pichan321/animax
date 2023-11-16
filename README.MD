@@ -26,8 +26,31 @@ Animax heavily relies on FFMPEG. To run Animax you would first have to install F
 
 ### Usage
 
-  
-  Coming soon
+  #### Video
+
+ ##### Load Video
+
+```
+	video, err := animax.LoadVideo("shin.mp4")
+	if err != nil {
+		panic(err)
+	}
+```
+##### Apply effects
+Effects can be applied as many as you want on a particular video. Trim effects will always be prioritized and executed first regardless of when it is applied (saving CPU and time).
+
+```
+	video.Trim(200, 300).MuteAudio().Saturate(1.5)
+```
+##### Render
+Render method will actually perform render on the video based on all the effects you have chained. Render takes in an output path and video encoding. The below two lines are equivalent.
+```
+ 	video.Render("output.mp4", animax.VIDEO_ENCODINGS.Best)
+```
+
+```
+	 video.Render("output.mp4", "")
+```
   
 
 ### Contact:
