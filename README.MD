@@ -3,16 +3,7 @@
  ![Animax](https://i.ibb.co/ccKy1PK/logo-circle.jpg)
 
 ### Description
- Animax is a Go (Golang) public module created in hope of making video/audio editing on Golang become a much easier task for everyone. 
-Animax also offers extra functions that module users might or might not find useful depending on their use cases:
-- NewAspectRatio
-- AddOverlayBackground
-- AddOverlayBackgroundWithLogo
-- PeriodicSkip
-- UploadToFacebookReels
-- UploadToFacebookVideo
-
-The module is inspired by MovieGo, and Cinema. Huge props to the creators of the two modules.
+ Animax is a Go (Golang) public module created in hope of making video/audio editing on Golang become a much easier task for everyone. Unlike any other binders/wrappers, animax uses graph + rules in order to maximize effiency in video editing especially for clipping videos/audios.
   
 ### Installations
 
@@ -43,7 +34,9 @@ Effects can be applied as many as you want on a particular video. Trim effects w
 	video.Trim(200, 300).MuteAudio().Saturate(1.5)
 ```
 ##### Render
-Render method will actually perform render on the video based on all the effects you have chained. Render takes in an output path and video encoding. The below two lines are equivalent.
+Render method will actually perform render on the video based on all the effects you have chained. Render takes in an output path and video encoding. 
+
+The below two lines are equivalent.
 ```go
  	video.Render("output.mp4", animax.VIDEO_ENCODINGS.Best)
 ```
@@ -51,7 +44,30 @@ Render method will actually perform render on the video based on all the effects
 ```go
 	 video.Render("output.mp4", "")
 ```
+
+### Audio
+
+#### Load Audio
+
+```go
+	audio, err := animax.LoadAudio("audio.mp3")
+	if err != nil {
+		panic(err)
+	}
+```
+
+#### Apply effects
+The same as video, you can apply and chain as many effects as you want, but trim effects will always be prioritized and executed first for efficiency.
   
+```go
+audio.Trim(100, 200).Nightcore()
+```
+
+#### Render
+
+```go
+audio.Render("output.mp4")
+```
 
 ### Contact:
 
