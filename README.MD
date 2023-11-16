@@ -66,7 +66,7 @@ The same as video, you can apply and chain as many effects as you want, but trim
 #### Render
 
 ```go
-	audio.Render("output.mp4")
+	audio.Render("output.mp3")
 ```
 
 ### Contact:
