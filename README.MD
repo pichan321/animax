@@ -43,6 +43,8 @@ The below two lines are equivalent.
 	video.Render("output.mp4", "")
 ```
 
+![Render Graph](https://i.ibb.co/8rfdWsQ/Untitled-2023-11-18-0002.png)
+
 ### Audio
 
 #### Load Audio
