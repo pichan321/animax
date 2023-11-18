@@ -43,7 +43,7 @@ The below two lines are equivalent.
 	video.Render("output.mp4", "")
 ```
 
-![Render Graph](https://i.ibb.co/8rfdWsQ/Untitled-2023-11-18-0002.png)
+![Video Render Graph](https://i.ibb.co/8rfdWsQ/Untitled-2023-11-18-0002.png)
 
 ### Audio
 
@@ -69,8 +69,9 @@ The same as video, you can apply and chain as many effects as you want, but trim
 	audio.Render("output.mp3")
 ```
 
-### Contact:
+![Audio Render Graph](https://i.ibb.co/pdbgdwb/Audio-Render.png)
 
+### Contact:
  
 Emails:
 - pichsereyvattanchan@gmail.com
