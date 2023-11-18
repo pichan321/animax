@@ -45,6 +45,21 @@ The below two lines are equivalent.
 
 ![Video Render Graph](https://i.ibb.co/8rfdWsQ/Untitled-2023-11-18-0002.png)
 
+##### What happens if trim effect is used multiple times on a video but not continiously
+
+```go
+	func main() {
+		video, err := animax.LoadVideo("shin.mp4")
+		if err != nil {
+			panic(err)
+		}
+		video.Trim(0, 500).Saturate(1.5).Trim(100, 350).MuteAudio().Trim(0, 150).CropOutTop(100)
+		video.Render("output.mp4", "")
+	}
+```
+
+
+
 ### Audio
 
 #### Load Audio
