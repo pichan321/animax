@@ -45,6 +45,23 @@ The below two lines are equivalent.
 
 ![Video Render Graph](https://i.ibb.co/8rfdWsQ/Untitled-2023-11-18-0002.png)
 
+##### What happens if trim effect is used only once
+
+A video with only a single trim effect applied will always be re-encoded.
+
+```go
+	func main() {
+		video, err := animax.LoadVideo("shin.mp4")
+		if err != nil {
+			panic(err)
+		}
+		video.Trim(0, 500)
+		video.Render("output.mp4", "")
+	}
+```
+
+![Video Render Graph](https://i.ibb.co/Y0c8Yfy/Reencode.png)
+
 ##### What happens if trim effect is used multiple times on a video but not continiously
 
 ```go
