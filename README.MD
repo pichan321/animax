@@ -58,7 +58,9 @@ The below two lines are equivalent.
 	}
 ```
 
+Render process graph from above code:
 
+![Video Render Graph](https://i.ibb.co/K50zWg8/Complex.png)
 
 ### Audio
 
