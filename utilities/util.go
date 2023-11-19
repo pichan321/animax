@@ -165,7 +165,7 @@ func ConcatenateVideosFromDir(directoryPath string, encode bool, outputPath stri
 func TrimNoEncode(video animax.Video, startTime int64, endTime int64, outputString string) (animax.Video, error) {
 	newStart := video.SeekFrame(startTime)
 	if newStart == -1 {newStart = float64(startTime)}
-	cmd := exec.Command("ffmpeg", "-ss", fmt.Sprintf("%.5f", newStart), "-i", video.FilePath, "-to", fmt.Sprintf("%.5f", float64(endTime) - newStart), "-c", "copy", "-y", outputString)
+	cmd := exec.Command("ffmpeg", "-ss", fmt.Sprintf("%.5f", newStart), "-i", video.FilePath, "-to", fmt.Sprintf("%.5f", float64(endTime) - float64(startTime)), "-c", "copy", "-y", outputString)
 	animax.Logger.Infoln("Command to be executed: " + cmd.String())
 	_, err := cmd.CombinedOutput()
 	if err != nil {
