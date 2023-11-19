@@ -88,7 +88,7 @@ from the time you specify, but this will in exchange make sure you do not create
 ```go
 	import (
 		"github.com/pichan321/animax"
-		"github.com/pichan321/animax/utilities"
+		util "github.com/pichan321/animax/utilities"
 	)
 
 	func main() {
