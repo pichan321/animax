@@ -47,7 +47,7 @@ The below two lines are equivalent.
 
 ##### What happens if trim effect is used only once
 
-A video with only a single trim effect applied will always be re-encoded.
+A video with only a single trim effect applied will always be re-encoded. To use trim without re-encode, please refer [here](#trim-with-no-encode)
 
 ```go
 	func main() {
@@ -78,6 +78,10 @@ A video with only a single trim effect applied will always be re-encoded.
 Render process graph from above code:
 
 ![Video Render Graph](https://i.ibb.co/K50zWg8/Complex.png)
+
+#### Trim with no-encode
+
+
 
 ### Audio
 
