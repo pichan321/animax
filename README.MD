@@ -130,9 +130,6 @@ The same as video, you can apply and chain as many effects as you want, but trim
 
 ![Audio Render Graph](https://i.ibb.co/pdbgdwb/Audio-Render.png)
 
-### Contact:
- 
-Emails:
-- pichsereyvattanchan@gmail.com
+### Contact: pichsereyvattanchan@gmail.com
 
-**Pichsereyvattana Chan**
+
