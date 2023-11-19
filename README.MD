@@ -81,6 +81,27 @@ Render process graph from above code:
 
 #### Trim with no-encode
 
+Trim with no-encode (TrimNoEncode) utilizes a combination of both input seeking and output seeking to quickly generate a subclip almost instantaneously. Due to frame seeking on input seeking, your video might start a little bit off
+from the time you specify, but this will in exchange make sure you do not create clips that start playing with black screens for the first few seconds.
+(https://video.stackexchange.com/questions/18284/cutting-with-ffmpeg-results-in-few-seconds-of-black-screen-how-do-i-fix-this)
+
+```go
+	import (
+		"github.com/pichan321/animax"
+		"github.com/pichan321/animax/utilities"
+	)
+
+	func main() {
+		video, err := animax.LoadVideo("shin.mp4")
+		if err != nil {
+			panic(err)
+		}
+		video, err = util.TrimNoEncode(video, 100, 500, "output.mp4")
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+```
 
 
 ### Audio
