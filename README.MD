@@ -1,7 +1,7 @@
 # Animax 
 
 ### Description
- Animax is a Go (Golang) public module created in hope of making video/audio editing on Golang become a much easier task for everyone. Unlike any other binders/wrappers, animax uses graph + rules in order to maximize effiency in video editing especially for clipping videos/audios by choosing when to re-encode or not depending on the effects you use.
+ Animax is a Go (Golang) video editing and audio editing created in hope of making video/audio editing on Golang become a much easier task for everyone. Unlike any other binders/wrappers, animax uses graph + rules in order to maximize effiency in video editing especially for clipping videos/audios by choosing when to re-encode or not depending on the effects you use.
   
 ### Installations
 
