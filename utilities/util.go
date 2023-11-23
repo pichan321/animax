@@ -239,3 +239,14 @@ func Skipper(video animax.Video, skipDuration float64, skipInterval float64, out
 func ExtractAudio(videoPath string, outputPath string) error {
 	return nil
 }
+
+func TakeScreenshot(videoPath string, time float64, outputPath string) error {
+	cmd := exec.Command("ffmpeg", "-i", videoPath, "-ss", fmt.Sprintf("%f", time), "-frames:v", "1", "-y", outputPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		animax.Logger.Infof("%s\n", string(output))
+		return err
+	}
+	
+	return nil
+}
