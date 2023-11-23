@@ -1,7 +1,7 @@
 # Animax 
 
 ### Description
- Animax is a Go (Golang) public module created in hope of making video/audio editing on Golang become a much easier task for everyone. Unlike any other binders/wrappers, animax uses graph + rules in order to maximize effiency in video editing especially for clipping videos/audios by choosing when to re-encode or not depending on the effects you use.
+ Animax is a Go (Golang) video editing and audio editing created in hope of making video/audio editing on Golang become a much easier task for everyone. Unlike any other binders/wrappers, animax uses graph + rules in order to maximize effiency in video editing especially for clipping videos/audios by choosing when to re-encode or not depending on the effects you use.
   
 ### Installations
 
@@ -47,7 +47,7 @@ The below two lines are equivalent.
 
 ##### What happens if trim effect is used only once
 
-A video with only a single trim effect applied will always be re-encoded.
+A video with only a single trim effect applied will always be re-encoded. To use trim without re-encode, please refer [here](#trim-with-no-encode)
 
 ```go
 	func main() {
@@ -79,6 +79,31 @@ Render process graph from above code:
 
 ![Video Render Graph](https://i.ibb.co/K50zWg8/Complex.png)
 
+#### Trim with no-encode
+
+Trim with no-encode (TrimNoEncode) utilizes a combination of both input seeking and output seeking to quickly generate a subclip almost instantaneously. Due to frame seeking on input seeking, your video might start a little bit off
+from the time you specify, but this will in exchange make sure you do not create clips that start playing with black screens for the first few seconds.
+(https://video.stackexchange.com/questions/18284/cutting-with-ffmpeg-results-in-few-seconds-of-black-screen-how-do-i-fix-this)
+
+```go
+	import (
+		"github.com/pichan321/animax"
+		util "github.com/pichan321/animax/utilities"
+	)
+
+	func main() {
+		video, err := animax.LoadVideo("shin.mp4")
+		if err != nil {
+			panic(err)
+		}
+		video, err = util.TrimNoEncode(video, 100, 500, "output.mp4")
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+```
+
+
 ### Audio
 
 #### Load Audio
@@ -105,9 +130,6 @@ The same as video, you can apply and chain as many effects as you want, but trim
 
 ![Audio Render Graph](https://i.ibb.co/pdbgdwb/Audio-Render.png)
 
-### Contact:
- 
-Emails:
-- pichsereyvattanchan@gmail.com
+### Contact: pichsereyvattanchan@gmail.com
 
-**Pichsereyvattana Chan**
+
